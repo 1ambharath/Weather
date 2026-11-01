@@ -57,16 +57,26 @@ This app was engineered to solve that exact pain: **A single, unified, location-
 
 ## 📸 App Screenshots Gallery
 
+*Actual native screenshots captured directly from the running Android application:*
+
 <p align="center">
-  <img src="docs/screenshots/dashboard_home.png" width="24%" alt="Home Dashboard" />
-  <img src="docs/screenshots/groq_ai_briefing.png" width="24%" alt="AI Briefing" />
-  <img src="docs/screenshots/doppler_radar.png" width="24%" alt="Doppler Radar" />
-  <img src="docs/screenshots/groq_settings.png" width="24%" alt="Groq AI Settings" />
+  <img src="docs/screenshots/dashboard_home.png" width="31%" alt="Today Dashboard" />
+  <img src="docs/screenshots/doppler_radar.png" width="31%" alt="Doppler Radar & Maps" />
+  <img src="docs/screenshots/places_clustering.png" width="31%" alt="Places & Proximity Clustering" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/alerts_screen.png" width="31%" alt="Two-Tier Alerts" />
+  <img src="docs/screenshots/groq_settings.png" width="31%" alt="Groq AI Settings" />
+  <img src="docs/screenshots/groq_ai_briefing.png" width="31%" alt="AI Intelligence Briefing" />
 </p>
 
-| **1. Today Dashboard** | **2. AI Intelligence Briefing** | **3. Doppler Radar & Maps** | **4. Secure Groq Settings** |
-| :--- | :--- | :--- | :--- |
-| Real-time weather, heat index warning, hourly monsoon probabilities, PM2.5 air quality gauge, and marine wave swell cards. | High-speed Groq AI summary breaking down monsoons, regional travel impacts, and practical tips. | Interactive vector map of Thailand with live TMD Doppler radar reflectivity loops (-60m to Live). | Android KeyStore hardware-encrypted API key management and instant Groq latency ping. |
+| **1. Today Dashboard** | **2. Doppler Radar & Map** | **3. Places & Clustering** |
+| :--- | :--- | :--- |
+| Real-time observations, official TMD Alert No. 4, Feels like 35°C tropical humidity, and 24h hourly monsoon rain percentages. | Interactive vector map of Thailand with live TMD Doppler radar reflectivity loops (-60m to Live). | Haversine distance clustering (5 to 50 km) for all 77 Thai provinces and side-by-side weather comparisons. |
+
+| **4. Two-Tier Alerts** | **5. Secure Groq AI Settings** | **6. AI Intelligence Briefing** |
+| :--- | :--- | :--- |
+| Strict two-tier safety architecture: Official TMD/DDPM government warnings vs app-generated forecast risks. | Android KeyStore hardware-backed AES-256-GCM encryption, masked key preview, and live ping latency test. | Real-time AI meteorological synthesis summarizing current monsoon behavior, regional alerts, and vacation advice. |
 
 ---
 
