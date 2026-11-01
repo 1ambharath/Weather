@@ -277,15 +277,29 @@ To run the automated test suite (including Haversine distance tests, Groq API cl
 
 ## 📦 Releases & Version History
 
-### [v1.0.0] - Initial Production Release
-* ✨ **Full Thailand Forecast Suite**: Real-time conditions, hourly timeline, 7-day forecast.
-* 🌊 **Coastal & Marine Weather**: Wave heights, swells, and ferry caution advisories for Phuket, Koh Samui, Krabi, Pattaya, and Hua Hin.
-* 🛰️ **Interactive Doppler Radar**: Live radar loops (-60m to Live) from TMD radar stations.
-* 🤖 **Groq AI Meteorological Briefing**: Instant natural language weather summaries and vacation tips powered by LLaMA 3.3.
-* 🔒 **Hardware KeyStore AES-256-GCM**: Secure API key storage.
-* 📍 **Haversine Proximity Clustering**: Smart grouping for all 77 Thai provinces.
-* ⚠️ **Two-Tier Safety System**: Official TMD/DDPM government warnings vs forecast risks.
-* 📦 **Installable Release APK**: Added `release/thailand-weather-v1.0.0.apk`.
+Detailed release logs, fixes, and upgrade guidelines are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+### [v1.0.0] - Production Release (2026-11-01)
+> 📦 **Download**: [thailand-weather-v1.0.0.apk](https://github.com/1ambharath/Weather/releases/download/v1.0.0/thailand-weather-v1.0.0.apk) *(~3.1 MB)*  
+> 🛡️ **SHA-256**: `E543F7106A298C47AC782269550610F053B2B32B2041ED8B7DCEBC5900E2C495`
+
+#### 🚀 What Was Added
+* **Full Thailand Forecast Suite**: Real-time conditions, hourly timeline, 7-day forecast across all 77 Thai provinces.
+* **Coastal & Marine Weather**: Wave heights, swells, and ferry caution advisories for Phuket, Koh Samui, Krabi, Pattaya, and Hua Hin.
+* **Interactive Doppler Radar**: Live radar loops (-60m to Live) from TMD radar stations.
+* **Groq AI Meteorological Briefing**: Instant natural language weather summaries and vacation tips powered by LLaMA 3.3.
+* **Hardware KeyStore AES-256-GCM**: Secure on-device API key storage.
+* **Haversine Proximity Clustering**: Smart grouping for all 77 Thai provinces.
+* **Two-Tier Safety System**: Official TMD/DDPM government warnings vs forecast risks.
+
+#### 🛠️ What Was Fixed
+* **In-Place Seamless Updates**: Configured deterministic Gradle signing (`signingConfigs.release`) with `release.jks` and v2/v3 signature schemes so every subsequent release installs over the existing version without signature mismatch errors.
+* **Clean Uninstallation**: Added `android:hasFragileUserData="false"` and updated `backup_rules.xml` & `data_extraction_rules.xml` to prevent Android Auto Backup from restoring obsolete cached databases or stale credentials on reinstall.
+* **KeyStore Orphan Cleanup**: Implemented automatic detection and purging of orphaned encrypted blobs if hardware keys are cleared upon uninstall.
+
+#### 🔄 What Was Changed & Updated
+* **R8 Shrinking & Optimization**: Reduced APK size from **~22.5 MB to ~3.16 MB** (>85% reduction) with custom ProGuard rules.
+* **Debug Namespace Isolation**: Isolated debug builds with `.debug` package suffix to prevent collisions with production installations.
 
 ---
 
