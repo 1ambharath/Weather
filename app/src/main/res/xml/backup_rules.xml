@@ -1,11 +1,23 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules for Android 11 and below (API <= 31).
+  We intentionally exclude the Room database and DataStore files from cloud backups
+  because they contain only cached weather/news data that should be re-fetched fresh
+  on each install. The encrypted Groq API key is always excluded — the Android KeyStore
+  key it was encrypted with is device-scoped and won't survive an uninstall; restoring
+  the encrypted blob without the original key would leave the app stuck.
 -->
 <full-backup-content>
-    <!-- Exclude sensitive encrypted API key storage from all backups -->
+    <!-- Encrypted API key — KeyStore key is device+install scoped, blob is unrecoverable after reinstall -->
     <exclude domain="sharedpref" path="secure_groq_storage.xml"/>
+    <!-- Room DB — pure network cache, re-fetched on launch -->
+    <exclude domain="database" path="thailand_weather.db"/>
+    <exclude domain="database" path="thailand_weather.db-shm"/>
+    <exclude domain="database" path="thailand_weather.db-wal"/>
+    <!-- DataStore — recreated with defaults on first launch -->
+    <exclude domain="file" path="datastore/user_preferences.preferences_pb"/>
+    <!-- WorkManager internal DB -->
+    <exclude domain="database" path="androidx.work.workdb"/>
+    <exclude domain="database" path="androidx.work.workdb-shm"/>
+    <exclude domain="database" path="androidx.work.workdb-wal"/>
 </full-backup-content>

@@ -1,8 +1,18 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.ksp)
+}
+
+// Load signing config from keystore.properties (never committed to git)
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+  if (keystorePropertiesFile.exists()) {
+    load(keystorePropertiesFile.inputStream())
+  }
 }
 
 android {
@@ -13,13 +23,37 @@ android {
     minSdk = 26
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0"
+    versionName = "1.0.0"
+  }
+
+  // Production signing config — same keystore for every release so Android
+  // allows seamless over-the-air updates without uninstall/reinstall.
+  signingConfigs {
+    create("release") {
+      if (keystorePropertiesFile.exists()) {
+        storeFile = file(keystoreProperties["storeFile"] as String)
+        storePassword = keystoreProperties["storePassword"] as String
+        keyAlias = keystoreProperties["keyAlias"] as String
+        keyPassword = keystoreProperties["keyPassword"] as String
+        enableV1Signing = true
+        enableV2Signing = true
+        enableV3Signing = true
+      }
+    }
   }
 
   buildTypes {
     release {
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      // Always sign release builds with the production keystore
+      signingConfig = signingConfigs.getByName("release")
+    }
+    debug {
+      // Keep debug builds independent — they use the debug keystore by default
+      applicationIdSuffix = ".debug"
+      versionNameSuffix = "-debug"
     }
   }
   compileOptions {

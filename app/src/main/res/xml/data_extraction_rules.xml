@@ -1,15 +1,34 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for Android 12+ (API >= 31).
+  Cloud backup and device-to-device transfer both exclude caches and secrets.
+  Users keep only their settings preferences (dark mode, units, radius, notification flags)
+  which are safe and have no security implications.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Exclude encrypted API key from cloud backup -->
+        <!-- Encrypted API key — cannot be decrypted without the original KeyStore key -->
         <exclude domain="sharedpref" path="secure_groq_storage.xml"/>
+        <!-- Room DB — pure network cache -->
+        <exclude domain="database" path="thailand_weather.db"/>
+        <exclude domain="database" path="thailand_weather.db-shm"/>
+        <exclude domain="database" path="thailand_weather.db-wal"/>
+        <!-- DataStore proto -->
+        <exclude domain="file" path="datastore/user_preferences.preferences_pb"/>
+        <!-- WorkManager DB -->
+        <exclude domain="database" path="androidx.work.workdb"/>
+        <exclude domain="database" path="androidx.work.workdb-shm"/>
+        <exclude domain="database" path="androidx.work.workdb-wal"/>
     </cloud-backup>
     <device-transfer>
-        <!-- Exclude encrypted API key from device transfers -->
+        <!-- Same exclusions for device-to-device transfers -->
         <exclude domain="sharedpref" path="secure_groq_storage.xml"/>
+        <exclude domain="database" path="thailand_weather.db"/>
+        <exclude domain="database" path="thailand_weather.db-shm"/>
+        <exclude domain="database" path="thailand_weather.db-wal"/>
+        <exclude domain="file" path="datastore/user_preferences.preferences_pb"/>
+        <exclude domain="database" path="androidx.work.workdb"/>
+        <exclude domain="database" path="androidx.work.workdb-shm"/>
+        <exclude domain="database" path="androidx.work.workdb-wal"/>
     </device-transfer>
 </data-extraction-rules>

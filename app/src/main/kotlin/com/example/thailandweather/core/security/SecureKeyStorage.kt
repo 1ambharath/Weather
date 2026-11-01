@@ -76,7 +76,13 @@ class KeystoreEncryptedKeyStorage(
             val iv = Base64.decode(encodedIv, Base64.NO_WRAP)
             val ciphertext = Base64.decode(encodedCiphertext, Base64.NO_WRAP)
 
-            val secretKey = getSecretKey() ?: return@withContext null
+            val secretKey = getSecretKey() ?: run {
+                // KeyStore entry is gone (e.g. app was reinstalled / key evicted).
+                // The encrypted blob is now unrecoverable — wipe stale preference data
+                // so the UI shows "no key saved" rather than being stuck in a broken state.
+                purgeOrphanedPreferences()
+                return@withContext null
+            }
             val cipher = Cipher.getInstance(TRANSFORMATION)
             val spec = GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
@@ -84,13 +90,37 @@ class KeystoreEncryptedKeyStorage(
             val decryptedBytes = cipher.doFinal(ciphertext)
             String(decryptedBytes, Charsets.UTF_8)
         } catch (e: Exception) {
-            // Never log exception details containing payload or key material
+            // Decryption failure likely means the KeyStore key changed (reinstall with
+            // a different debug/release signature or device reset). Purge stale data.
+            purgeOrphanedPreferences()
             null
         }
     }
 
+    /**
+     * Removes orphaned encrypted blobs when the backing KeyStore key is no longer
+     * accessible. This is the normal outcome after:
+     * - App uninstall + reinstall (Android deletes app-scoped KeyStore keys on uninstall)
+     * - Switching from a debug-signed to a release-signed APK
+     * The user will simply be prompted to re-enter their Groq API key.
+     */
+    private fun purgeOrphanedPreferences() {
+        sharedPreferences.edit().clear().apply()
+    }
+
     override suspend fun hasApiKey(): Boolean = withContext(Dispatchers.IO) {
-        sharedPreferences.contains(KEY_ENCRYPTED_DATA) && sharedPreferences.contains(KEY_IV)
+        // Validate that both the encrypted blob AND the KeyStore key are present.
+        // If only the prefs exist (key evicted after reinstall) this returns false
+        // so the UI correctly shows "no API key configured" rather than hanging.
+        val hasPrefs = sharedPreferences.contains(KEY_ENCRYPTED_DATA) && sharedPreferences.contains(KEY_IV)
+        if (!hasPrefs) return@withContext false
+        val keyExists = try { keyStore.containsAlias(keyAlias) } catch (_: Exception) { false }
+        if (!keyExists) {
+            // Prefs are orphaned — clean them up proactively
+            purgeOrphanedPreferences()
+            return@withContext false
+        }
+        true
     }
 
     override suspend fun getMaskedKeyDisplay(): String? = withContext(Dispatchers.IO) {
