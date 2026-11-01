@@ -3,13 +3,24 @@ package com.example.thailandweather.data.repository
 import com.example.thailandweather.core.database.dao.NewsDao
 import com.example.thailandweather.core.database.entity.ArticleEntity
 import com.example.thailandweather.core.model.Article
+import com.example.thailandweather.data.provider.OpenMeteoWeatherProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+
+data class NewsRefreshResult(
+    val isSuccess: Boolean,
+    val hasNewArticles: Boolean,
+    val newCount: Int
+)
 
 class NewsRepository(
-    private val newsDao: NewsDao
+    private val newsDao: NewsDao,
+    private val client: OkHttpClient = OpenMeteoWeatherProvider.createDefaultOkHttpClient()
 ) {
 
     val allArticles: Flow<List<Article>> = newsDao.getAllArticlesFlow().map { list ->
@@ -20,11 +31,28 @@ class NewsRepository(
         list.map { it.toDomain() }
     }
 
-    suspend fun refreshArticles(): List<Article> = withContext(Dispatchers.IO) {
+    suspend fun refreshArticles(): NewsRefreshResult = withContext(Dispatchers.IO) {
+        val existingEntities = newsDao.getAllArticlesFlow().firstOrNull() ?: emptyList()
+        val existingIds = existingEntities.map { it.id }.toSet()
+
+        val liveArticles = fetchLiveGoogleNewsRss()
         val verifiedNews = fetchVerifiedThailandWeatherNews()
-        val deduplicated = deduplicateArticles(verifiedNews)
-        newsDao.insertArticles(deduplicated.map { it.toEntity() })
-        deduplicated
+        val combined = if (liveArticles.isNotEmpty()) liveArticles + verifiedNews else verifiedNews
+        val deduplicated = deduplicateArticles(combined)
+
+        val newArticles = deduplicated.filter { it.id !in existingIds }
+
+        if (newArticles.isNotEmpty()) {
+            newsDao.insertArticles(deduplicated.map { it.toEntity() })
+            NewsRefreshResult(isSuccess = true, hasNewArticles = true, newCount = newArticles.size)
+        } else {
+            if (existingEntities.isEmpty() && deduplicated.isNotEmpty()) {
+                newsDao.insertArticles(deduplicated.map { it.toEntity() })
+                NewsRefreshResult(isSuccess = true, hasNewArticles = true, newCount = deduplicated.size)
+            } else {
+                NewsRefreshResult(isSuccess = true, hasNewArticles = false, newCount = 0)
+            }
+        }
     }
 
     suspend fun toggleBookmark(articleId: String, isBookmarked: Boolean) = withContext(Dispatchers.IO) {
@@ -120,6 +148,102 @@ class NewsRepository(
                 province = "Khon Kaen"
             )
         )
+    }
+
+    private fun fetchLiveGoogleNewsRss(): List<Article> {
+        val list = mutableListOf<Article>()
+        try {
+            val url = "https://news.google.com/rss/search?q=Thailand+weather&hl=en&gl=TH&ceid=TH:en"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Android; Mobile; rv:109.0) Gecko/111.0 Firefox/111.0")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return emptyList()
+                val xml = response.body?.string() ?: return emptyList()
+
+                val itemRegex = Regex("<item>(.*?)</item>", RegexOption.DOT_MATCHES_ALL)
+                val titleRegex = Regex("<title>(.*?)</title>")
+                val linkRegex = Regex("<link>(.*?)</link>")
+                val pubDateRegex = Regex("<pubDate>(.*?)</pubDate>")
+                val sourceRegex = Regex("<source[^>]*>(.*?)</source>")
+
+                val matches = itemRegex.findAll(xml).take(20)
+                for (match in matches) {
+                    val itemContent = match.groupValues[1]
+                    val rawTitle = titleRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: continue
+                    val link = linkRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: ""
+                    val pubDateStr = pubDateRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: ""
+                    val source = sourceRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: "Thailand Weather News"
+
+                    val cleanTitle = cleanHtmlEntities(rawTitle.substringBeforeLast(" - $source"))
+                    val publishedAt = parsePubDate(pubDateStr)
+
+                    // Infer category
+                    val titleLower = cleanTitle.lowercase()
+                    val category = when {
+                        "flood" in titleLower || "inundat" in titleLower || "water" in titleLower -> "Floods"
+                        "air" in titleLower || "pm2.5" in titleLower || "smog" in titleLower || "pollution" in titleLower -> "Air Quality"
+                        "marine" in titleLower || "sea" in titleLower || "wave" in titleLower || "swell" in titleLower || "ferry" in titleLower -> "Marine"
+                        "heat" in titleLower || "drought" in titleLower || "warm" in titleLower || "hot" in titleLower -> "Heat & Climate"
+                        "storm" in titleLower || "monsoon" in titleLower || "rain" in titleLower || "cyclone" in titleLower || "typhoon" in titleLower -> "Severe Weather"
+                        else -> "Severe Weather"
+                    }
+
+                    // Infer province
+                    val province = when {
+                        "bangkok" in titleLower -> "Bangkok"
+                        "phuket" in titleLower -> "Phuket"
+                        "chiang mai" in titleLower -> "Chiang Mai"
+                        "chiang rai" in titleLower -> "Chiang Rai"
+                        "krabi" in titleLower -> "Krabi"
+                        "surat thani" in titleLower || "samui" in titleLower -> "Surat Thani"
+                        "chon buri" in titleLower || "pattaya" in titleLower -> "Chon Buri"
+                        "ayutthaya" in titleLower -> "Ayutthaya"
+                        "khon kaen" in titleLower -> "Khon Kaen"
+                        else -> "Thailand"
+                    }
+
+                    val id = "rss_" + (cleanTitle.hashCode() xor link.hashCode()).toUInt().toString(16)
+
+                    list.add(
+                        Article(
+                            id = id,
+                            title = cleanTitle,
+                            summary = "Reported by $source: $cleanTitle",
+                            publisher = source,
+                            publishedAt = publishedAt,
+                            url = link,
+                            category = category,
+                            province = province
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {
+            // Fallback on network failure
+        }
+        return list
+    }
+
+    private fun cleanHtmlEntities(text: String): String {
+        return text
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+    }
+
+    private fun parsePubDate(dateStr: String): Long {
+        if (dateStr.isBlank()) return System.currentTimeMillis()
+        return try {
+            val format = java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", java.util.Locale.ENGLISH)
+            format.parse(dateStr)?.time ?: System.currentTimeMillis()
+        } catch (_: Exception) {
+            System.currentTimeMillis()
+        }
     }
 
     private fun ArticleEntity.toDomain(): Article = Article(

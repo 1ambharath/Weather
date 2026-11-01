@@ -18,9 +18,10 @@ import com.example.thailandweather.core.database.entity.WeatherCacheEntity
         PlaceEntity::class,
         WeatherCacheEntity::class,
         AlertEntity::class,
-        ArticleEntity::class
+        ArticleEntity::class,
+        com.example.thailandweather.core.database.entity.AiBriefingEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weatherCacheDao(): WeatherCacheDao
     abstract fun alertsDao(): AlertsDao
     abstract fun newsDao(): NewsDao
+    abstract fun aiBriefingDao(): com.example.thailandweather.core.database.dao.AiBriefingDao
 
     companion object {
         @Volatile

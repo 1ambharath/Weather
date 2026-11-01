@@ -2,23 +2,34 @@ package com.example.thailandweather.ui.news
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.thailandweather.core.model.Article
+import com.example.thailandweather.ui.components.NomadSkeletonListCard
+import com.example.thailandweather.ui.theme.DribbblePalette
+import com.example.thailandweather.ui.theme.NomadKitPalette
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,11 +43,22 @@ fun NewsScreen(
     val context = LocalContext.current
     var isSearchExpanded by remember { mutableStateOf(false) }
 
+    LaunchedEffect(viewModel) {
+        viewModel.toastMessage.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val categories = listOf("All", "Severe Weather", "Floods", "Air Quality", "Heat & Climate", "Marine", "Bookmarks")
 
     Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 title = {
                     if (isSearchExpanded) {
                         OutlinedTextField(
@@ -44,6 +66,10 @@ fun NewsScreen(
                             onValueChange = { viewModel.updateSearchQuery(it) },
                             placeholder = { Text("Search Thailand weather news...") },
                             singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NomadKitPalette.PrimarySand,
+                                cursorColor = NomadKitPalette.PrimarySand
+                            ),
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
@@ -58,22 +84,37 @@ fun NewsScreen(
                     IconButton(onClick = { isSearchExpanded = !isSearchExpanded }) {
                         Icon(
                             imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
-                            contentDescription = "Search"
+                            contentDescription = "Search",
+                            tint = NomadKitPalette.PrimarySand
                         )
-                    }
-                    IconButton(onClick = { viewModel.refreshNews() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh news")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = modifier
+        val pullToRefreshState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refreshNews() },
+            state = pullToRefreshState,
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(padding),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullToRefreshState,
+                    isRefreshing = uiState.isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    color = DribbblePalette.Accent
+                )
+            }
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
             // Category Chips
             LazyRow(
                 modifier = Modifier
@@ -86,9 +127,33 @@ fun NewsScreen(
                     FilterChip(
                         selected = isSelected,
                         onClick = { viewModel.selectCategory(category) },
-                        label = { Text(category, fontSize = 12.sp) },
+                        shape = RoundedCornerShape(percent = 50),
+                        label = {
+                            Text(
+                                category,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DribbblePalette.Primary,
+                            selectedLabelColor = Color.White
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = NomadKitPalette.Outline,
+                            selectedBorderColor = DribbblePalette.Primary
+                        ),
                         leadingIcon = if (category == "Bookmarks") {
-                            { Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            {
+                                Icon(
+                                    Icons.Default.Bookmark,
+                                    contentDescription = null,
+                                    tint = if (isSelected) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         } else null
                     )
                 }
@@ -97,9 +162,20 @@ fun NewsScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Articles List
-            if (uiState.filteredArticles.isEmpty()) {
+            if (uiState.isRefreshing && uiState.filteredArticles.isEmpty()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    NomadSkeletonListCard()
+                    NomadSkeletonListCard()
+                    NomadSkeletonListCard()
+                }
+            } else if (uiState.filteredArticles.isEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -123,11 +199,13 @@ fun NewsScreen(
                 }
             }
         }
+        }
     }
 
     // Article Details Modal Bottom Sheet
     uiState.selectedArticle?.let { article ->
         ModalBottomSheet(
+            containerColor = MaterialTheme.colorScheme.surface,
             onDismissRequest = { viewModel.openArticle(null) }
         ) {
             Column(
@@ -142,13 +220,13 @@ fun NewsScreen(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = NomadKitPalette.PrimarySandLight
                     ) {
                         Text(
                             text = article.category.uppercase(),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = NomadKitPalette.PrimarySandDeep,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -156,7 +234,7 @@ fun NewsScreen(
                         Icon(
                             imageVector = if (article.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                             contentDescription = "Bookmark",
-                            tint = if (article.isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            tint = if (article.isBookmarked) NomadKitPalette.PrimarySand else MaterialTheme.colorScheme.outline
                         )
                     }
                 }
@@ -174,7 +252,7 @@ fun NewsScreen(
                 Text(
                     text = "Published by ${article.publisher} • ${formatArticleTime(article.publishedAt)}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = NomadKitPalette.SecondaryOcean
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -192,11 +270,16 @@ fun NewsScreen(
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
                         context.startActivity(intent)
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DribbblePalette.Primary,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(percent = 50),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.OpenInNew, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Read Original on ${article.publisher}")
+                    Text("Read Original on ${article.publisher}", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -213,10 +296,11 @@ fun ArticleCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.Outline)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -224,15 +308,15 @@ fun ArticleCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        shape = RoundedCornerShape(percent = 50),
+                        color = DribbblePalette.NeutralRose
                     ) {
                         Text(
                             text = article.category.uppercase(),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            color = DribbblePalette.Accent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                     article.province?.let {
@@ -251,13 +335,13 @@ fun ArticleCard(
                     Icon(
                         imageVector = if (article.isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                         contentDescription = "Bookmark",
-                        tint = if (article.isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        tint = if (article.isBookmarked) DribbblePalette.Accent else MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = article.title,
@@ -275,7 +359,7 @@ fun ArticleCard(
                 maxLines = 3
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -284,8 +368,8 @@ fun ArticleCard(
                 Text(
                     text = article.publisher,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.SemiBold,
+                    color = NomadKitPalette.SecondaryOcean
                 )
                 Text(
                     text = formatArticleTime(article.publishedAt),

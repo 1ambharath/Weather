@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.thailandweather.core.model.Article
 import com.example.thailandweather.data.repository.NewsRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -21,12 +22,14 @@ class NewsViewModel(
     private val newsRepository: NewsRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(NewsUiState(isRefreshing = true))
+    private val _uiState = MutableStateFlow(NewsUiState(isRefreshing = false))
     val uiState: StateFlow<NewsUiState> = _uiState.asStateFlow()
+
+    private val _toastMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
     init {
         observeNews()
-        refreshNews()
     }
 
     private fun observeNews() {
@@ -40,11 +43,33 @@ class NewsViewModel(
         }
     }
 
-    fun refreshNews() {
+    fun refreshNews(isUserInitiated: Boolean = true) {
+        if (_uiState.value.isRefreshing && isUserInitiated) return
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
-            newsRepository.refreshArticles()
-            _uiState.update { it.copy(isRefreshing = false) }
+            val startTime = System.currentTimeMillis()
+
+            try {
+                val result = newsRepository.refreshArticles()
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+                if (isUserInitiated) {
+                    val message = if (result.hasNewArticles) "loaded fresh contents" else "No fresh updates"
+                    _toastMessage.emit(message)
+                }
+            } catch (e: Exception) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+                if (isUserInitiated) {
+                    _toastMessage.emit("No fresh updates")
+                }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 

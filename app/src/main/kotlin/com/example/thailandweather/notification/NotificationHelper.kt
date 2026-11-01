@@ -14,13 +14,22 @@ import com.example.thailandweather.core.model.ForecastRisk
 import com.example.thailandweather.core.model.OfficialAlert
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * NotificationHelper manages environmental and disaster alert notifications.
+ *
+ * Implements strict requirements:
+ * - Rate limited to a maximum of 2 notifications per hour across alerts.
+ * - Fully dismissible: user can swipe away, tap to open & dismiss, or tap explicit "Dismiss" action.
+ */
 class NotificationHelper(private val context: Context) {
 
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private val cooldownTracker = ConcurrentHashMap<String, Long>()
-    private val COOLDOWN_MILLIS = 6 * 3600 * 1000L // 6 hours cooldown per alert ID
+    private val COOLDOWN_MILLIS = 3 * 3600 * 1000L // 3 hours cooldown per identical alert ID
+
+    private val rateLimiter = AlertNotificationRateLimiter(SharedPreferencesRateLimitStorage(context))
 
     init {
         createNotificationChannels()
@@ -59,21 +68,61 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun showOfficialWarning(alert: OfficialAlert) {
-        val lastNotified = cooldownTracker[alert.id] ?: 0L
-        if (System.currentTimeMillis() - lastNotified < COOLDOWN_MILLIS) {
-            return // Skip notification due to cooldown
-        }
-        cooldownTracker[alert.id] = System.currentTimeMillis()
+    /**
+     * Checks if a new alert notification is permitted under the 2 notifications per hour limit.
+     */
+    fun canSendAlertNotification(): Boolean = rateLimiter.canSend()
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+    /**
+     * Returns count of alert notifications sent in the rolling past 1 hour.
+     */
+    fun getRecentAlertNotificationsCount(): Int = rateLimiter.getCountInLastHour()
+
+    /**
+     * Clears recent rate limit timestamps (useful for testing or manual user reset).
+     */
+    fun resetRateLimitTracker() {
+        rateLimiter.reset()
+        cooldownTracker.clear()
+    }
+
+    /**
+     * Shows an official TMD warning notification if rate limit (max 2/hour) and cooldown permit.
+     * Returns true if notification was shown, false if rate limited or on cooldown.
+     */
+    fun showOfficialWarning(alert: OfficialAlert, bypassCooldown: Boolean = false): Boolean {
+        val lastNotified = cooldownTracker[alert.id] ?: 0L
+        if (!bypassCooldown && System.currentTimeMillis() - lastNotified < COOLDOWN_MILLIS) {
+            return false // Skip notification due to identical alert cooldown
+        }
+
+        if (!canSendAlertNotification()) {
+            return false // Enforce max 2 alert notifications per hour
+        }
+
+        val notificationId = alert.id.hashCode()
+
+        // Content intent when tapping notification
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("navigate_to", "alerts")
         }
-        val pendingIntent = PendingIntent.getActivity(
+        val contentPendingIntent = PendingIntent.getActivity(
             context,
-            alert.id.hashCode(),
-            intent,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Dismiss action intent
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
+            action = NotificationDismissReceiver.ACTION_DISMISS
+            putExtra(NotificationDismissReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -81,33 +130,63 @@ class NotificationHelper(private val context: Context) {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("⚠️ Official Warning: ${alert.title}")
             .setContentText(alert.description)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("${alert.description}\n\nAffected: ${alert.affectedProvinces.joinToString(", ")}"))
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("${alert.description}\n\nAffected: ${alert.affectedProvinces.joinToString(", ")}")
+            )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
+            .setOngoing(false) // User can swipe to dismiss
+            .setDeleteIntent(dismissPendingIntent) // Called when user swipes away
+            .addAction(0, "Dismiss", dismissPendingIntent) // Explicit Dismiss action button
 
-        try {
-            NotificationManagerCompat.from(context).notify(alert.id.hashCode(), builder.build())
+        return try {
+            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            cooldownTracker[alert.id] = System.currentTimeMillis()
+            rateLimiter.recordSent()
+            true
         } catch (e: SecurityException) {
-            // Android 13+ permission not granted
+            // Android 13+ POST_NOTIFICATIONS permission not granted
+            false
         }
     }
 
-    fun showForecastRisk(risk: ForecastRisk) {
+    /**
+     * Shows a forecast hazard risk notification if rate limit (max 2/hour) and cooldown permit.
+     * Returns true if notification was shown, false if rate limited or on cooldown.
+     */
+    fun showForecastRisk(risk: ForecastRisk, bypassCooldown: Boolean = false): Boolean {
         val lastNotified = cooldownTracker[risk.id] ?: 0L
-        if (System.currentTimeMillis() - lastNotified < COOLDOWN_MILLIS) {
-            return
+        if (!bypassCooldown && System.currentTimeMillis() - lastNotified < COOLDOWN_MILLIS) {
+            return false
         }
-        cooldownTracker[risk.id] = System.currentTimeMillis()
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+        if (!canSendAlertNotification()) {
+            return false // Enforce max 2 alert notifications per hour
+        }
+
+        val notificationId = risk.id.hashCode()
+
+        val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("navigate_to", "alerts")
         }
-        val pendingIntent = PendingIntent.getActivity(
+        val contentPendingIntent = PendingIntent.getActivity(
             context,
-            risk.id.hashCode(),
-            intent,
+            notificationId,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
+            action = NotificationDismissReceiver.ACTION_DISMISS
+            putExtra(NotificationDismissReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -119,15 +198,24 @@ class NotificationHelper(private val context: Context) {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Forecast Hazard: ${risk.headline}")
             .setContentText("${risk.placeName}: ${risk.detail}")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("${risk.detail}\nValue: ${risk.triggerValue}"))
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("${risk.detail}\nValue: ${risk.triggerValue}")
+            )
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentPendingIntent)
             .setAutoCancel(true)
+            .setOngoing(false) // User can swipe to dismiss
+            .setDeleteIntent(dismissPendingIntent)
+            .addAction(0, "Dismiss", dismissPendingIntent) // Explicit Dismiss action button
 
-        try {
-            NotificationManagerCompat.from(context).notify(risk.id.hashCode(), builder.build())
+        return try {
+            NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+            cooldownTracker[risk.id] = System.currentTimeMillis()
+            rateLimiter.recordSent()
+            true
         } catch (e: SecurityException) {
-            // Permission not granted
+            false
         }
     }
 

@@ -57,6 +57,10 @@ class SettingsViewModel(
         viewModelScope.launch { preferencesDataStore.setAutoRefreshIntervalMinutes(minutes) }
     }
 
+    fun toggleDarkMode(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setDarkMode(enabled) }
+    }
+
     class Factory(private val dataStore: UserPreferencesDataStore) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

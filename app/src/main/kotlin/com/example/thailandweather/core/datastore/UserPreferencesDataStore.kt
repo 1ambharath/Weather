@@ -23,6 +23,19 @@ class UserPreferencesDataStore(private val context: Context) {
         val NOTIFY_FORECAST_RISKS = booleanPreferencesKey("notify_forecast_risks")
         val NOTIFY_AIR_QUALITY = booleanPreferencesKey("notify_air_quality")
         val REFRESH_INTERVAL_MINUTES = intPreferencesKey("refresh_interval_minutes")
+        val AI_SELECTED_MODEL = stringPreferencesKey("ai_selected_model")
+        val DARK_MODE = booleanPreferencesKey("dark_mode")
+    }
+
+    val selectedAiModelFlow: Flow<String> = context.dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { preferences ->
+            val saved = preferences[Keys.AI_SELECTED_MODEL]
+            if (saved == null || saved == "mixtral-8x7b-32768") "llama-3.3-70b-versatile" else saved
+        }
+
+    suspend fun setAiSelectedModel(model: String) {
+        context.dataStore.edit { it[Keys.AI_SELECTED_MODEL] = model }
     }
 
     val preferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -43,7 +56,8 @@ class UserPreferencesDataStore(private val context: Context) {
                 notifyOfficialWarnings = prefs[Keys.NOTIFY_OFFICIAL_WARNINGS] ?: true,
                 notifyForecastRisks = prefs[Keys.NOTIFY_FORECAST_RISKS] ?: true,
                 notifyAirQuality = prefs[Keys.NOTIFY_AIR_QUALITY] ?: true,
-                autoRefreshIntervalMinutes = prefs[Keys.REFRESH_INTERVAL_MINUTES] ?: 30
+                autoRefreshIntervalMinutes = prefs[Keys.REFRESH_INTERVAL_MINUTES] ?: 30,
+                darkMode = prefs[Keys.DARK_MODE] ?: false
             )
         }
 
@@ -81,5 +95,9 @@ class UserPreferencesDataStore(private val context: Context) {
 
     suspend fun setAutoRefreshIntervalMinutes(minutes: Int) {
         context.dataStore.edit { it[Keys.REFRESH_INTERVAL_MINUTES] = minutes }
+    }
+
+    suspend fun setDarkMode(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.DARK_MODE] = enabled }
     }
 }

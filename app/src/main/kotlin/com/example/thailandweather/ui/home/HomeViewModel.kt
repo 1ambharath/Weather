@@ -8,6 +8,7 @@ import com.example.thailandweather.data.repository.AlertsRepository
 import com.example.thailandweather.data.repository.NewsRepository
 import com.example.thailandweather.data.repository.PlacesRepository
 import com.example.thailandweather.data.repository.WeatherRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -22,21 +23,36 @@ data class HomeUiState(
     val comparisonSnapshots: Map<String, WeatherSnapshot> = emptyMap(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val aiBriefingSummary: String? = null
 )
 
 class HomeViewModel(
     private val placesRepository: PlacesRepository,
     private val weatherRepository: WeatherRepository,
     private val alertsRepository: AlertsRepository,
-    private val newsRepository: NewsRepository
+    private val newsRepository: NewsRepository,
+    private val aiRepository: com.example.thailandweather.data.repository.AiRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val _toastMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
+
     init {
         observeData()
+        observeAiBriefing()
+    }
+
+    private fun observeAiBriefing() {
+        val repo = aiRepository ?: return
+        viewModelScope.launch {
+            repo.latestBriefingFlow.collect { briefing ->
+                _uiState.update { it.copy(aiBriefingSummary = briefing?.thailandSummary) }
+            }
+        }
     }
 
     private fun observeData() {
@@ -72,13 +88,46 @@ class HomeViewModel(
 
     fun refresh() {
         val place = _uiState.value.selectedPlace ?: return
-        _uiState.update { it.copy(isRefreshing = true) }
-        loadWeatherForPlace(place, forceRefresh = true)
+        if (_uiState.value.isRefreshing) return
+
         viewModelScope.launch {
-            alertsRepository.refreshOfficialAlerts()
-            newsRepository.refreshArticles()
-            loadComparisonSnapshots(_uiState.value.allPlaces)
-            _uiState.update { it.copy(isRefreshing = false) }
+            _uiState.update { it.copy(isRefreshing = true) }
+            val startTime = System.currentTimeMillis()
+
+            try {
+                val refreshResult = weatherRepository.refreshWeather(place)
+                if (refreshResult.isSuccess && refreshResult.snapshot != null) {
+                    _uiState.update { state ->
+                        state.copy(
+                            currentSnapshot = refreshResult.snapshot,
+                            hourlyForecast = refreshResult.hourly,
+                            dailyForecast = refreshResult.daily,
+                            isLoading = false
+                        )
+                    }
+                    alertsRepository.evaluateForecastRisks(place, refreshResult.snapshot)
+                }
+
+                alertsRepository.refreshOfficialAlerts()
+                newsRepository.refreshArticles()
+                loadComparisonSnapshots(_uiState.value.allPlaces)
+
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+
+                val message = if (refreshResult.hasNewData) "loaded fresh contents" else "No fresh updates"
+                _toastMessage.emit(message)
+            } catch (e: Exception) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+                _toastMessage.emit("No fresh updates")
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 
@@ -115,11 +164,12 @@ class HomeViewModel(
         private val placesRepo: PlacesRepository,
         private val weatherRepo: WeatherRepository,
         private val alertsRepo: AlertsRepository,
-        private val newsRepo: NewsRepository
+        private val newsRepo: NewsRepository,
+        private val aiRepo: com.example.thailandweather.data.repository.AiRepository? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return HomeViewModel(placesRepo, weatherRepo, alertsRepo, newsRepo) as T
+            return HomeViewModel(placesRepo, weatherRepo, alertsRepo, newsRepo, aiRepo) as T
         }
     }
 }

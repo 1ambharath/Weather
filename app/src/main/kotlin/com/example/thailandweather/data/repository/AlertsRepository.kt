@@ -5,10 +5,17 @@ import com.example.thailandweather.core.database.entity.AlertEntity
 import com.example.thailandweather.core.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+
+data class AlertsRefreshResult(
+    val isSuccess: Boolean,
+    val hasNewAlerts: Boolean,
+    val alertCount: Int
+)
 
 class AlertsRepository(
     private val alertsDao: AlertsDao
@@ -54,6 +61,39 @@ class AlertsRepository(
         }
         alertsDao.insertAlerts(entities)
         official
+    }
+
+    suspend fun refreshAlerts(): AlertsRefreshResult = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val previousOfficial = alertsDao.getOfficialAlertsFlow().firstOrNull() ?: emptyList()
+        val previousRisks = alertsDao.getForecastRisksFlow().firstOrNull() ?: emptyList()
+        val previousOfficialIds = previousOfficial.map { it.id }.toSet()
+
+        alertsDao.deleteExpiredAlerts(now)
+
+        val official = fetchVerifiedTmdOfficialAlerts()
+        val entities = official.map { alert ->
+            AlertEntity(
+                id = alert.id,
+                alertType = "OFFICIAL",
+                dataJson = json.encodeToString(alert),
+                severityLevel = alert.severity.level,
+                issuedAt = alert.issuedAt,
+                expiresAt = alert.expiresAt,
+                isActive = alert.isActive && alert.expiresAt > now
+            )
+        }
+        alertsDao.insertAlerts(entities)
+
+        val currentRisks = alertsDao.getForecastRisksFlow().firstOrNull() ?: emptyList()
+        val hasNewOfficial = official.any { it.id !in previousOfficialIds } || previousOfficial.isEmpty()
+        val hasChanged = hasNewOfficial || (previousRisks.size != currentRisks.size)
+
+        AlertsRefreshResult(
+            isSuccess = true,
+            hasNewAlerts = hasChanged,
+            alertCount = official.size
+        )
     }
 
     /**

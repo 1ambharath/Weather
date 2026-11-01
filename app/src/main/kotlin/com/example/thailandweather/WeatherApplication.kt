@@ -44,6 +44,15 @@ class WeatherApplication : Application() {
     lateinit var notificationHelper: NotificationHelper
         private set
 
+    lateinit var secureKeyStorage: com.example.thailandweather.core.security.SecureKeyStorage
+        private set
+
+    lateinit var groqClient: com.example.thailandweather.data.remote.GroqClient
+        private set
+
+    lateinit var aiRepository: com.example.thailandweather.data.repository.AiRepository
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -56,6 +65,19 @@ class WeatherApplication : Application() {
         alertsRepository = AlertsRepository(database.alertsDao())
         newsRepository = NewsRepository(database.newsDao())
         notificationHelper = NotificationHelper(this)
+
+        secureKeyStorage = com.example.thailandweather.core.security.KeystoreEncryptedKeyStorage(this)
+        groqClient = com.example.thailandweather.data.remote.GroqClient()
+        aiRepository = com.example.thailandweather.data.repository.DefaultAiRepository(
+            briefingDao = database.aiBriefingDao(),
+            secureKeyStorage = secureKeyStorage,
+            groqClient = groqClient,
+            preferencesDataStore = preferencesDataStore,
+            placesRepository = placesRepository,
+            weatherRepository = weatherRepository,
+            alertsRepository = alertsRepository,
+            newsRepository = newsRepository
+        )
 
         // Seed initial curated Thai destinations and schedule sync
         applicationScope.launch {

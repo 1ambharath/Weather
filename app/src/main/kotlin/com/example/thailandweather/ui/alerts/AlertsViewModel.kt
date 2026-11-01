@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.thailandweather.core.model.ForecastRisk
 import com.example.thailandweather.core.model.OfficialAlert
 import com.example.thailandweather.data.repository.AlertsRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -21,12 +22,14 @@ class AlertsViewModel(
     private val alertsRepository: AlertsRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AlertsUiState(isRefreshing = true))
+    private val _uiState = MutableStateFlow(AlertsUiState(isRefreshing = false))
     val uiState: StateFlow<AlertsUiState> = _uiState.asStateFlow()
+
+    private val _toastMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
 
     init {
         observeAlerts()
-        refreshAlerts()
     }
 
     private fun observeAlerts() {
@@ -46,11 +49,33 @@ class AlertsViewModel(
         }
     }
 
-    fun refreshAlerts() {
+    fun refreshAlerts(isUserInitiated: Boolean = true) {
+        if (_uiState.value.isRefreshing && isUserInitiated) return
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
-            alertsRepository.refreshOfficialAlerts()
-            _uiState.update { it.copy(isRefreshing = false) }
+            val startTime = System.currentTimeMillis()
+
+            try {
+                val result = alertsRepository.refreshAlerts()
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+                if (isUserInitiated) {
+                    val message = if (result.hasNewAlerts) "loaded fresh contents" else "No fresh updates"
+                    _toastMessage.emit(message)
+                }
+            } catch (e: Exception) {
+                val elapsed = System.currentTimeMillis() - startTime
+                if (elapsed < 600) {
+                    delay(600 - elapsed)
+                }
+                if (isUserInitiated) {
+                    _toastMessage.emit("No fresh updates")
+                }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 

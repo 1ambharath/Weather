@@ -91,3 +91,18 @@ data class ArticleEntity(
     val imageUrl: String?,
     val isBookmarked: Boolean = false
 )
+
+@Entity(tableName = "ai_briefings")
+data class AiBriefingEntity(
+    @PrimaryKey val id: String = "latest_briefing",
+    val title: String,
+    val thailandSummary: String,
+    val locationSummariesJson: String,
+    val newsAndIncidents: String,
+    val riskExplanationsJson: String,
+    val actionableAdviceJson: String,
+    val sourcesJson: String,
+    val modelUsed: String,
+    val generatedAt: Long
+)
+

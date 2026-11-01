@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import com.example.thailandweather.core.model.Place
 import com.example.thailandweather.core.util.WeatherUtils
 import com.example.thailandweather.ui.components.getWeatherIcon
+import com.example.thailandweather.ui.theme.DribbblePalette
+import com.example.thailandweather.ui.theme.NomadKitPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,8 +42,13 @@ fun ExploreScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 title = {
                     Text(
                         text = "Thailand Radar & Weather Map",
@@ -53,7 +60,7 @@ fun ExploreScreen(
         }
     ) { padding ->
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
@@ -61,7 +68,7 @@ fun ExploreScreen(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(MapOverlayType.values()) { type ->
@@ -69,7 +76,25 @@ fun ExploreScreen(
                     FilterChip(
                         selected = isSelected,
                         onClick = { viewModel.selectOverlay(type) },
-                        label = { Text(type.label, fontSize = 12.sp) },
+                        shape = RoundedCornerShape(percent = 50),
+                        label = {
+                            Text(
+                                type.label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DribbblePalette.Primary,
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = NomadKitPalette.Outline,
+                            selectedBorderColor = DribbblePalette.Primary
+                        ),
                         leadingIcon = {
                             val icon = when (type) {
                                 MapOverlayType.RADAR -> Icons.Default.Radar
@@ -95,16 +120,20 @@ fun ExploreScreen(
                     items(uiState.radarStations) { station ->
                         val isSelected = uiState.selectedStation.id == station.id
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(percent = 50),
+                            color = if (isSelected) DribbblePalette.Primary else MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isSelected) DribbblePalette.Primary else NomadKitPalette.Outline
+                            ),
                             modifier = Modifier.clickable { viewModel.selectStation(station) }
                         ) {
                             Text(
                                 text = station.name,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                             )
                         }
                     }
@@ -118,8 +147,8 @@ fun ExploreScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, NomadKitPalette.OutlineVariant, RoundedCornerShape(20.dp))
             ) {
                 ThailandMapCanvas(
                     places = uiState.places,
@@ -135,22 +164,28 @@ fun ExploreScreen(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(12.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    shadowElevation = 2.dp
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.OutlineVariant),
+                    shadowElevation = 1.dp
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
-                        Text(text = "Reflectivity (dBZ)", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Reflectivity (dBZ)",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(modifier = Modifier.width(90.dp).height(8.dp)) {
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF80D8FF)))
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF00E676)))
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFFFEA00)))
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFFF9100)))
-                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFFF1744)))
+                        Row(modifier = Modifier.width(96.dp).height(8.dp).clip(RoundedCornerShape(4.dp))) {
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF38BDF8)))
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF22C55E)))
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFEAB308)))
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFF97316)))
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFFEF4444)))
                         }
                         Row(
-                            modifier = Modifier.width(90.dp),
+                            modifier = Modifier.width(96.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("10", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -177,8 +212,9 @@ fun ExploreScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.PrimarySand)
                     ) {
                         Row(
                             modifier = Modifier
@@ -192,12 +228,13 @@ fun ExploreScreen(
                                     text = "${place.name}, ${place.province}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Coordinates: ${String.format("%.2f", place.latitude)}°N, ${String.format("%.2f", place.longitude)}°E",
+                                    text = "GPS: ${String.format("%.2f", place.latitude)}°N, ${String.format("%.2f", place.longitude)}°E",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    fontWeight = FontWeight.Medium,
+                                    color = NomadKitPalette.SecondaryOcean
                                 )
                                 uiState.inspectedWeather?.let { snap ->
                                     Spacer(modifier = Modifier.height(4.dp))
@@ -205,7 +242,7 @@ fun ExploreScreen(
                                         text = "${snap.weatherDescription} • Feels like ${Math.round(snap.apparentTemperatureCelsius)}°C",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        color = NomadKitPalette.PrimarySandDeep
                                     )
                                 }
                             }
@@ -214,15 +251,15 @@ fun ExploreScreen(
                                     Text(
                                         text = "${Math.round(snap.temperatureCelsius)}°C",
                                         fontSize = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 IconButton(onClick = { viewModel.clearInspection() }) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = "Close",
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -243,7 +280,6 @@ fun ThailandMapCanvas(
     loopFrame: Int,
     onPlaceTapped: (Place) -> Unit
 ) {
-    // Thailand bounding box: Lat 5.5 to 20.5 (height 15.0), Lon 97.0 to 106.0 (width 9.0)
     val minLat = 5.5
     val maxLat = 20.5
     val minLon = 97.0
@@ -257,7 +293,6 @@ fun ThailandMapCanvas(
                     val width = size.width
                     val height = size.height
 
-                    // Find nearest place to tap
                     val tapped = places.minByOrNull { p ->
                         val x = ((p.longitude - minLon) / (maxLon - minLon) * width).toFloat()
                         val y = ((maxLat - p.latitude) / (maxLat - minLat) * height).toFloat()
@@ -277,7 +312,7 @@ fun ThailandMapCanvas(
         fun toX(lon: Double): Float = ((lon - minLon) / (maxLon - minLon) * w).toFloat()
         fun toY(lat: Double): Float = ((maxLat - lat) / (maxLat - minLat) * h).toFloat()
 
-        // 1. Draw generalized boundary shape of Thailand (North, Central, Isan, South Peninsula)
+        // 1. Draw generalized boundary shape of Thailand in warm earth tones
         val path = Path().apply {
             moveTo(toX(99.0), toY(20.0)) // Chiang Rai / North
             lineTo(toX(101.0), toY(19.5)) // Nan
@@ -299,40 +334,44 @@ fun ThailandMapCanvas(
             close()
         }
 
-        // Draw territory fill & outline
+        // Draw territory fill & outline in NomadKit warm sand/stone
         drawPath(
             path = path,
-            color = Color(0xFF2C3E50).copy(alpha = 0.2f)
+            color = Color(0xFFD4A373).copy(alpha = 0.12f)
         )
         drawPath(
             path = path,
-            color = Color(0xFF4A6572),
+            color = Color(0xFFB08968).copy(alpha = 0.4f),
             style = Stroke(width = 2.dp.toPx())
         )
 
-        // 2. Draw Radar / Precipitation Reflectivity Overlays
+        // 2. Draw Radar / Precipitation Reflectivity Overlays in Ocean accents
         if (overlayType == MapOverlayType.RADAR || overlayType == MapOverlayType.PRECIPITATION) {
             val stationX = toX(activeStation.longitude)
             val stationY = toY(activeStation.latitude)
 
-            // Radar range sweep circle
+            // Radar range sweep circle with Ocean tint
             drawCircle(
-                color = Color(0xFF00E5FF).copy(alpha = 0.15f),
+                color = Color(0xFF0891B2).copy(alpha = 0.12f),
                 radius = 80.dp.toPx(),
                 center = Offset(stationX, stationY)
             )
             drawCircle(
-                color = Color(0xFF00E5FF).copy(alpha = 0.4f),
+                color = Color(0xFF0891B2).copy(alpha = 0.35f),
                 radius = 80.dp.toPx(),
                 center = Offset(stationX, stationY),
                 style = Stroke(width = 1.dp.toPx())
             )
 
-            // Animated / dynamic simulated precipitation blobs around current frame
+            // Simulated precipitation blobs around frame
             val frameOffset = loopFrame * 4.0
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFFF5252).copy(alpha = 0.7f), Color(0xFFFFEB3B).copy(alpha = 0.4f), Color.Transparent),
+                    colors = listOf(
+                        Color(0xFFDC2626).copy(alpha = 0.65f),
+                        Color(0xFFCA8A04).copy(alpha = 0.4f),
+                        Color.Transparent
+                    ),
                     center = Offset(stationX + frameOffset.toFloat(), stationY - frameOffset.toFloat()),
                     radius = 35.dp.toPx()
                 ),
@@ -341,22 +380,22 @@ fun ThailandMapCanvas(
             )
         }
 
-        // 3. Draw Saved Place Pins
+        // 3. Draw Saved Place Pins in NomadKit Primary Sand
         places.forEach { place ->
             val px = toX(place.longitude)
             val py = toY(place.latitude)
             val isInspected = inspectedPlace?.id == place.id
 
-            // Pin shadow / halo
+            // Pin shadow / halo in warm sand
             drawCircle(
-                color = if (isInspected) Color(0xFFFF9100).copy(alpha = 0.4f) else Color(0xFF0288D1).copy(alpha = 0.25f),
+                color = if (isInspected) Color(0xFFD4A373).copy(alpha = 0.5f) else Color(0xFF0891B2).copy(alpha = 0.25f),
                 radius = if (isInspected) 16.dp.toPx() else 10.dp.toPx(),
                 center = Offset(px, py)
             )
 
             // Main pin dot
             drawCircle(
-                color = if (isInspected) Color(0xFFFF6D00) else Color(0xFF0288D1),
+                color = if (isInspected) Color(0xFFB08968) else Color(0xFFD4A373),
                 radius = if (isInspected) 7.dp.toPx() else 5.dp.toPx(),
                 center = Offset(px, py)
             )
@@ -381,30 +420,31 @@ fun RadarLoopControls(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.Outline)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onTogglePlay,
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    .size(38.dp)
+                    .background(NomadKitPalette.PrimarySand, CircleShape)
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = "Play loop",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(20.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Slider(
@@ -412,6 +452,11 @@ fun RadarLoopControls(
                     onValueChange = { onFrameChanged(it.toInt()) },
                     valueRange = 0f..4f,
                     steps = 3,
+                    colors = SliderDefaults.colors(
+                        thumbColor = NomadKitPalette.PrimarySand,
+                        activeTrackColor = NomadKitPalette.PrimarySand,
+                        inactiveTrackColor = NomadKitPalette.PrimarySandLight
+                    ),
                     modifier = Modifier.height(28.dp)
                 )
                 Row(
@@ -423,7 +468,7 @@ fun RadarLoopControls(
                             text = label,
                             fontSize = 10.sp,
                             fontWeight = if (idx == frameIndex) FontWeight.Bold else FontWeight.Normal,
-                            color = if (idx == frameIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (idx == frameIndex) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

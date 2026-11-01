@@ -5,15 +5,11 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Exclude encrypted API key from cloud backup -->
+        <exclude domain="sharedpref" path="secure_groq_storage.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <!-- Exclude encrypted API key from device transfers -->
+        <exclude domain="sharedpref" path="secure_groq_storage.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

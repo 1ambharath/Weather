@@ -69,6 +69,11 @@ object WeatherUtils {
         return sdf.format(Date(timestamp))
     }
 
+    fun formatTimestamp(timestamp: Long): String {
+        val sdf = SimpleDateFormat("EEE, d MMM HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
+    }
+
     /**
      * Curated Thai representative seed locations.
      */

@@ -16,6 +16,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.concurrent.ConcurrentHashMap
 
+data class WeatherRefreshResult(
+    val isSuccess: Boolean,
+    val hasNewData: Boolean,
+    val snapshot: WeatherSnapshot?,
+    val hourly: List<HourlyForecast>,
+    val daily: List<DailyForecast>
+)
+
 class WeatherRepository(
     private val weatherCacheDao: WeatherCacheDao,
     private val weatherProvider: WeatherProvider
@@ -72,8 +80,21 @@ class WeatherRepository(
         }
     }.flowOn(Dispatchers.IO)
 
-    suspend fun getHourlyForecast(place: Place): List<HourlyForecast> = withContext(Dispatchers.IO) {
-        hourlyMemoryCache[place.id]?.let { return@withContext it }
+    suspend fun getCachedWeatherSnapshot(placeId: String): WeatherSnapshot? = withContext(Dispatchers.IO) {
+        val cached = weatherCacheDao.getCachedWeather(placeId) ?: return@withContext null
+        try {
+            json.decodeFromString<WeatherSnapshot>(cached.dataJson)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    suspend fun getHourlyForecast(place: Place, forceRefresh: Boolean = false): List<HourlyForecast> = withContext(Dispatchers.IO) {
+        if (forceRefresh) {
+            hourlyMemoryCache.remove(place.id)
+        } else {
+            hourlyMemoryCache[place.id]?.let { return@withContext it }
+        }
 
         val result = weatherProvider.fetchHourlyForecast(place)
         if (result.isSuccess) {
@@ -85,8 +106,12 @@ class WeatherRepository(
         }
     }
 
-    suspend fun getDailyForecast(place: Place): List<DailyForecast> = withContext(Dispatchers.IO) {
-        dailyMemoryCache[place.id]?.let { return@withContext it }
+    suspend fun getDailyForecast(place: Place, forceRefresh: Boolean = false): List<DailyForecast> = withContext(Dispatchers.IO) {
+        if (forceRefresh) {
+            dailyMemoryCache.remove(place.id)
+        } else {
+            dailyMemoryCache[place.id]?.let { return@withContext it }
+        }
 
         val result = weatherProvider.fetchDailyForecast(place)
         if (result.isSuccess) {
@@ -95,6 +120,60 @@ class WeatherRepository(
             list
         } else {
             createFallbackDaily()
+        }
+    }
+
+    suspend fun refreshWeather(place: Place): WeatherRefreshResult = withContext(Dispatchers.IO) {
+        val previousEntity = weatherCacheDao.getCachedWeather(place.id)
+        val previousCached = getCachedWeatherSnapshot(place.id)
+        val wasStale = previousEntity?.let { System.currentTimeMillis() > it.expiresAt } ?: true
+        hourlyMemoryCache.remove(place.id)
+        dailyMemoryCache.remove(place.id)
+
+        val remoteResult = weatherProvider.fetchWeatherSnapshot(place)
+        val freshHourly = getHourlyForecast(place, forceRefresh = true)
+        val freshDaily = getDailyForecast(place, forceRefresh = true)
+
+        if (remoteResult.isSuccess) {
+            val freshSnapshot = remoteResult.getOrThrow()
+            val now = System.currentTimeMillis()
+            val cacheEntity = WeatherCacheEntity(
+                placeId = place.id,
+                dataJson = json.encodeToString(freshSnapshot),
+                cachedAt = now,
+                expiresAt = now + CACHE_TTL_MILLIS,
+                isStale = false
+            )
+            weatherCacheDao.insertOrUpdate(cacheEntity)
+
+            val hasChanged = previousCached == null || wasStale ||
+                previousCached.temperatureCelsius != freshSnapshot.temperatureCelsius ||
+                previousCached.apparentTemperatureCelsius != freshSnapshot.apparentTemperatureCelsius ||
+                previousCached.relativeHumidity != freshSnapshot.relativeHumidity ||
+                previousCached.weatherCode != freshSnapshot.weatherCode ||
+                previousCached.windSpeedKmh != freshSnapshot.windSpeedKmh ||
+                previousCached.surfacePressureHpa != freshSnapshot.surfacePressureHpa ||
+                previousCached.uvIndex != freshSnapshot.uvIndex ||
+                previousCached.precipitationMm != freshSnapshot.precipitationMm ||
+                previousCached.airQuality?.pm25 != freshSnapshot.airQuality?.pm25 ||
+                previousCached.airQuality?.aqiUs != freshSnapshot.airQuality?.aqiUs ||
+                previousCached.marine?.waveHeightMeters != freshSnapshot.marine?.waveHeightMeters
+
+            WeatherRefreshResult(
+                isSuccess = true,
+                hasNewData = hasChanged,
+                snapshot = freshSnapshot,
+                hourly = freshHourly,
+                daily = freshDaily
+            )
+        } else {
+            WeatherRefreshResult(
+                isSuccess = false,
+                hasNewData = false,
+                snapshot = previousCached,
+                hourly = freshHourly,
+                daily = freshDaily
+            )
         }
     }
 

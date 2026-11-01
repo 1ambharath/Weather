@@ -108,3 +108,18 @@ interface NewsDao {
     @Query("DELETE FROM articles WHERE isBookmarked = 0 AND publishedAt < :cutoff")
     suspend fun deleteOldArticles(cutoff: Long)
 }
+
+@Dao
+interface AiBriefingDao {
+    @Query("SELECT * FROM ai_briefings WHERE id = :id LIMIT 1")
+    fun getLatestBriefingFlow(id: String = "latest_briefing"): Flow<com.example.thailandweather.core.database.entity.AiBriefingEntity?>
+
+    @Query("SELECT * FROM ai_briefings WHERE id = :id LIMIT 1")
+    suspend fun getLatestBriefing(id: String = "latest_briefing"): com.example.thailandweather.core.database.entity.AiBriefingEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBriefing(briefing: com.example.thailandweather.core.database.entity.AiBriefingEntity)
+
+    @Query("DELETE FROM ai_briefings")
+    suspend fun clearBriefings()
+}

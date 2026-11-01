@@ -2,6 +2,7 @@ package com.example.thailandweather.ui.alerts
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,9 +10,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +31,9 @@ import com.example.thailandweather.core.model.ForecastRisk
 import com.example.thailandweather.core.model.OfficialAlert
 import com.example.thailandweather.core.util.WeatherUtils
 import com.example.thailandweather.ui.components.HazardBadge
+import com.example.thailandweather.ui.components.NomadSkeletonListCard
+import com.example.thailandweather.ui.theme.DribbblePalette
+import com.example.thailandweather.ui.theme.NomadKitPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,9 +45,20 @@ fun AlertsScreen(
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(0) }
 
+    LaunchedEffect(viewModel) {
+        viewModel.toastMessage.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 title = {
                     Text(
                         text = "Weather Warnings & Hazards",
@@ -46,43 +67,135 @@ fun AlertsScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refreshAlerts() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh alerts")
+                    IconButton(onClick = {
+                        val alerts = uiState.officialAlerts
+                        val helper = com.example.thailandweather.WeatherApplication.instance.notificationHelper
+                        val count = helper.getRecentAlertNotificationsCount()
+                        val alertToSend = alerts.getOrNull(count % (if (alerts.isNotEmpty()) alerts.size else 1)) ?: alerts.firstOrNull()
+                        if (alertToSend != null) {
+                            val sent = helper.showOfficialWarning(alertToSend, bypassCooldown = true)
+                            if (sent) {
+                                val newCount = helper.getRecentAlertNotificationsCount()
+                                Toast.makeText(context, "Alert notification sent ($newCount/2 used this hour)", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Rate limit reached: max 2 notifications per hour (2/2 sent)", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(context, "No official alerts available ($count/2 sent this hour)", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = "Alert Notification",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = modifier
+        val pullToRefreshState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refreshAlerts() },
+            state = pullToRefreshState,
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(padding),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullToRefreshState,
+                    isRefreshing = uiState.isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    color = DribbblePalette.Accent
+                )
+            }
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = NomadKitPalette.PrimarySandDeep
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Official TMD (${uiState.officialAlerts.size})") }
+                    text = {
+                        Text(
+                            "Official TMD (${uiState.officialAlerts.size})",
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == 0) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Forecast Risks (${uiState.forecastRisks.size})") }
+                    text = {
+                        Text(
+                            "Forecast Risks (${uiState.forecastRisks.size})",
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            color = if (selectedTab == 1) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            if (selectedTab == 0) {
+            if (uiState.isRefreshing && uiState.officialAlerts.isEmpty() && uiState.forecastRisks.isEmpty()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    NomadSkeletonListCard()
+                    NomadSkeletonListCard()
+                    NomadSkeletonListCard()
+                }
+            } else if (selectedTab == 0) {
                 // Official Warnings
                 if (uiState.officialAlerts.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "No active official weather warnings.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 40.dp)
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.OutlineVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = NomadKitPalette.TertiaryForest,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "All Clear in Monitored Regions",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "No active official weather warnings issued by TMD Thailand.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -100,12 +213,42 @@ fun AlertsScreen(
             } else {
                 // Forecast Risks
                 if (uiState.forecastRisks.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "No severe forecast hazards detected for saved places.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 40.dp)
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.OutlineVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = NomadKitPalette.TertiaryForest,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No Severe Forecast Hazards",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "Forecast thresholds indicate safe conditions for all saved destinations.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -122,18 +265,34 @@ fun AlertsScreen(
                 }
             }
         }
+        }
     }
 
     // Official Alert Detail Sheet
     uiState.selectedOfficialAlert?.let { alert ->
         val alertColor = Color(alert.severity.hexColor)
-        ModalBottomSheet(onDismissRequest = { viewModel.selectOfficialAlert(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+        ModalBottomSheet(
+            containerColor = MaterialTheme.colorScheme.surface,
+            onDismissRequest = { viewModel.selectOfficialAlert(null) }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
                 HazardBadge(severity = alert.severity, isOfficial = true)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = alert.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    text = alert.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 alert.titleThai?.let {
-                    Text(text = it, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -167,9 +326,13 @@ fun AlertsScreen(
                     items(alert.affectedProvinces) { prov ->
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
+                            color = NomadKitPalette.SurfaceVariant
                         ) {
-                            Text(text = prov, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                            Text(
+                                text = prov,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }
@@ -181,11 +344,16 @@ fun AlertsScreen(
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                             context.startActivity(intent)
                         },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DribbblePalette.Primary,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(percent = 50),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.OpenInNew, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("View Official Warning on TMD Portal")
+                        Text("View Official Warning on TMD Portal", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -195,11 +363,22 @@ fun AlertsScreen(
     // Forecast Risk Detail Sheet
     uiState.selectedForecastRisk?.let { risk ->
         val riskColor = Color(risk.severity.hexColor)
-        ModalBottomSheet(onDismissRequest = { viewModel.selectForecastRisk(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+        ModalBottomSheet(
+            containerColor = MaterialTheme.colorScheme.surface,
+            onDismissRequest = { viewModel.selectForecastRisk(null) }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
                 HazardBadge(severity = risk.severity, isOfficial = false)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(text = risk.headline, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    text = risk.headline,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(
                     text = "App Forecast Estimation for ${risk.placeName}",
                     style = MaterialTheme.typography.labelMedium,
@@ -208,8 +387,8 @@ fun AlertsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = riskColor.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, riskColor)
+                    color = riskColor.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, riskColor.copy(alpha = 0.5f))
                 ) {
                     Text(
                         text = "Triggered by: ${risk.triggerValue}",
@@ -246,14 +425,11 @@ fun OfficialAlertCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = alertColor.copy(alpha = 0.1f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.Outline)
     ) {
-        Column(
-            modifier = Modifier
-                .border(1.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
-                .padding(14.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -268,7 +444,7 @@ fun OfficialAlertCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = alert.title,
@@ -300,7 +476,7 @@ fun OfficialAlertCard(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = "Details",
-                    tint = alertColor
+                    tint = DribbblePalette.Accent
                 )
             }
         }
@@ -317,24 +493,32 @@ fun ForecastRiskCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.Outline)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 HazardBadge(severity = risk.severity, isOfficial = false)
-                Text(
-                    text = risk.placeName,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Surface(
+                    shape = RoundedCornerShape(percent = 50),
+                    color = DribbblePalette.NeutralRose
+                ) {
+                    Text(
+                        text = risk.placeName,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = DribbblePalette.Accent,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = risk.headline,
@@ -351,7 +535,7 @@ fun ForecastRiskCard(
                 maxLines = 2
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -359,20 +543,22 @@ fun ForecastRiskCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = riskColor.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(percent = 50),
+                    color = riskColor.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, riskColor.copy(alpha = 0.4f))
                 ) {
                     Text(
                         text = risk.triggerValue,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = riskColor,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Details"
+                    contentDescription = "Details",
+                    tint = DribbblePalette.Accent
                 )
             }
         }

@@ -276,6 +276,7 @@ class OpenMeteoWeatherProvider(
                 level = HttpLoggingInterceptor.Level.BASIC
             }
             return OkHttpClient.Builder()
+                .dns(ResilientDns)
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(20, TimeUnit.SECONDS)
                 .addInterceptor(logging)

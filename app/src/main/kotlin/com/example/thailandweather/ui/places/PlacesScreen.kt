@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import com.example.thailandweather.core.model.Place
 import com.example.thailandweather.core.util.Haversine
 import com.example.thailandweather.ui.components.getWeatherIcon
+import com.example.thailandweather.ui.theme.DribbblePalette
+import com.example.thailandweather.ui.theme.NomadKitPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +34,13 @@ fun PlacesScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
                 title = {
                     Text(
                         text = "Saved Places & Comparison",
@@ -43,14 +50,18 @@ fun PlacesScreen(
                 },
                 actions = {
                     IconButton(onClick = { viewModel.showAddDialog(true) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Place")
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add Place",
+                            tint = NomadKitPalette.PrimarySand
+                        )
                     }
                 }
             )
         }
     ) { padding ->
         Column(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp)
@@ -62,21 +73,36 @@ fun PlacesScreen(
                     .padding(vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(
-                    selected = uiState.viewMode == PlacesViewMode.COMPARISON_LIST,
-                    onClick = { viewModel.setViewMode(PlacesViewMode.COMPARISON_LIST) },
-                    label = { Text("All Places (${uiState.places.size})", fontSize = 12.sp) }
-                )
-                FilterChip(
-                    selected = uiState.viewMode == PlacesViewMode.PROXIMITY_CLUSTERS,
-                    onClick = { viewModel.setViewMode(PlacesViewMode.PROXIMITY_CLUSTERS) },
-                    label = { Text("Proximity Clusters", fontSize = 12.sp) }
-                )
-                FilterChip(
-                    selected = uiState.viewMode == PlacesViewMode.CUSTOM_GROUPS,
-                    onClick = { viewModel.setViewMode(PlacesViewMode.CUSTOM_GROUPS) },
-                    label = { Text("Custom Groups", fontSize = 12.sp) }
-                )
+                PlacesViewMode.values().forEach { mode ->
+                    val isSelected = uiState.viewMode == mode
+                    val label = when (mode) {
+                        PlacesViewMode.COMPARISON_LIST -> "All Places (${uiState.places.size})"
+                        PlacesViewMode.PROXIMITY_CLUSTERS -> "Proximity Clusters"
+                        PlacesViewMode.CUSTOM_GROUPS -> "Custom Groups"
+                    }
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.setViewMode(mode) },
+                        shape = RoundedCornerShape(percent = 50),
+                        label = {
+                            Text(
+                                label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DribbblePalette.Primary,
+                            selectedLabelColor = Color.White
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = NomadKitPalette.Outline,
+                            selectedBorderColor = DribbblePalette.Primary
+                        )
+                    )
+                }
             }
 
             // Proximity Radius Selector (when in cluster mode)
@@ -98,7 +124,18 @@ fun PlacesScreen(
                         FilterChip(
                             selected = isSelected,
                             onClick = { viewModel.setProximityRadius(radius) },
+                            shape = RoundedCornerShape(percent = 50),
                             label = { Text("${radius.toInt()} km", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = DribbblePalette.Primary,
+                                selectedLabelColor = Color.White
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSelected,
+                                borderColor = NomadKitPalette.Outline,
+                                selectedBorderColor = DribbblePalette.Primary
+                            ),
                             modifier = Modifier.padding(horizontal = 2.dp)
                         )
                     }
@@ -135,8 +172,9 @@ fun PlacesScreen(
                         items(uiState.clusters) { cluster ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                shape = RoundedCornerShape(18.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.OutlineVariant)
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Row(
@@ -150,7 +188,7 @@ fun PlacesScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     PlaceComparisonCard(
                                         place = cluster.primaryPlace,
                                         snapshot = uiState.snapshots[cluster.primaryPlace.id],
@@ -161,7 +199,7 @@ fun PlacesScreen(
                                         onDelete = { viewModel.deletePlace(cluster.primaryPlace.id) }
                                     )
                                     cluster.nearbyPlaces.forEach { member ->
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         PlaceComparisonCard(
                                             place = member,
                                             snapshot = uiState.snapshots[member.id],
@@ -184,12 +222,19 @@ fun PlacesScreen(
                     ) {
                         uiState.customGroupsMap.forEach { (groupName, placesInGroup) ->
                             item {
-                                Text(
-                                    text = "📂 $groupName (${placesInGroup.size})",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = NomadKitPalette.PrimarySandLight,
                                     modifier = Modifier.padding(vertical = 4.dp)
-                                )
+                                ) {
+                                    Text(
+                                        text = "📂 $groupName (${placesInGroup.size})",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NomadKitPalette.PrimarySandDeep,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                             items(placesInGroup) { place ->
                                 PlaceComparisonCard(
@@ -248,8 +293,9 @@ fun PlaceComparisonCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.Outline)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -266,15 +312,15 @@ fun PlaceComparisonCard(
                     if (place.isDefault) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            shape = RoundedCornerShape(percent = 50),
+                            color = DribbblePalette.NeutralRose
                         ) {
                             Text(
                                 text = "DEFAULT",
                                 fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                fontWeight = FontWeight.ExtraBold,
+                                color = DribbblePalette.Accent,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -291,7 +337,7 @@ fun PlaceComparisonCard(
                         Icon(
                             imageVector = getWeatherIcon(it.weatherCode),
                             contentDescription = it.weatherDescription,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = DribbblePalette.Accent,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -304,7 +350,7 @@ fun PlaceComparisonCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Sub-metrics (Air quality, Marine, Feels-like)
             Row(
@@ -314,15 +360,17 @@ fun PlaceComparisonCard(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     snapshot?.airQuality?.let { aq ->
+                        val aqColor = Color(aq.category.hexColor)
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color(aq.category.hexColor).copy(alpha = 0.2f)
+                            color = aqColor.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, aqColor.copy(alpha = 0.4f))
                         ) {
                             Text(
                                 text = "PM2.5: ${aq.pm25.toInt()} (${aq.category.label})",
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(aq.category.hexColor),
+                                fontWeight = FontWeight.Bold,
+                                color = aqColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -331,13 +379,14 @@ fun PlaceComparisonCard(
                     if (place.isCoastal && snapshot?.marine != null) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF00B0FF).copy(alpha = 0.2f)
+                            color = NomadKitPalette.SecondaryOceanLight,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NomadKitPalette.SecondaryOcean.copy(alpha = 0.3f))
                         ) {
                             Text(
                                 text = "Wave: ${String.format("%.1f", snapshot.marine.waveHeightMeters)}m",
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0091EA),
+                                fontWeight = FontWeight.Bold,
+                                color = NomadKitPalette.SecondaryOceanDark,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -352,8 +401,8 @@ fun PlaceComparisonCard(
                         Icon(
                             imageVector = if (place.alertEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
                             contentDescription = "Alerts",
-                            tint = if (place.alertEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
+                            tint = if (place.alertEnabled) NomadKitPalette.PrimarySand else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                     if (!place.isDefault) {
@@ -364,7 +413,8 @@ fun PlaceComparisonCard(
                             Icon(
                                 imageVector = Icons.Default.StarBorder,
                                 contentDescription = "Set default",
-                                modifier = Modifier.size(16.dp)
+                                tint = NomadKitPalette.PrimarySand,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         IconButton(
@@ -374,8 +424,8 @@ fun PlaceComparisonCard(
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                tint = NomadKitPalette.Error,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -403,31 +453,48 @@ fun AddPlaceDialog(
     var customGroup by remember { mutableStateOf("") }
 
     AlertDialog(
+        containerColor = MaterialTheme.colorScheme.surface,
         onDismissRequest = onDismiss,
         title = { Text(text = "Add Thailand Place", fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                TabRow(selectedTabIndex = selectedTab) {
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = NomadKitPalette.PrimarySandDeep
+                ) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Search") }
+                        text = {
+                            Text(
+                                "Search",
+                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedTab == 0) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Coordinates") }
+                        text = {
+                            Text(
+                                "Coordinates",
+                                fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedTab == 1) NomadKitPalette.PrimarySandDeep else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 if (selectedTab == 0) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = onQueryChange,
                         label = { Text("Search city, island or landmark") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = NomadKitPalette.PrimarySand) },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -435,7 +502,7 @@ fun AddPlaceDialog(
 
                     if (isSearching) {
                         Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            CircularProgressIndicator(color = NomadKitPalette.PrimarySand, modifier = Modifier.size(24.dp))
                         }
                     } else {
                         LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
@@ -481,7 +548,7 @@ fun AddPlaceDialog(
                     OutlinedTextField(
                         value = customGroup,
                         onValueChange = { customGroup = it },
-                        label = { Text("Custom Group (e.g. Vacation / Family)") },
+                        label = { Text("Custom Group (e.g. Island / Coworking)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -496,14 +563,22 @@ fun AddPlaceDialog(
                         if (customName.isNotBlank()) {
                             onAddCustom(customName, customProvince.ifBlank { "Thailand" }, lat, lon, customGroup.ifBlank { null })
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NomadKitPalette.PrimarySand,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Add Location")
+                    Text("Add Location", fontWeight = FontWeight.Bold)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) {
                 Text("Cancel")
             }
         }

@@ -94,12 +94,12 @@ data class AirQualitySnapshot(
 )
 
 enum class AirQualityCategory(val label: String, val thaiLabel: String, val hexColor: Long) {
-    VERY_GOOD("Very Good", "ดีมาก", 0xFF00B0FF),
-    GOOD("Good", "ดี", 0xFF00E676),
-    MODERATE("Moderate", "ปานกลาง", 0xFFFFD600),
-    UNHEALTHY_SENSITIVE("Unhealthy for Sensitive", "เริ่มมีผลต่อสุขภาพ", 0xFFFF9100),
-    UNHEALTHY("Unhealthy", "มีผลกระทบต่อสุขภาพ", 0xFFFF1744),
-    HAZARDOUS("Hazardous", "อันตราย", 0xFFD50000);
+    VERY_GOOD("Very Good", "ดีมาก", 0xFF166534),
+    GOOD("Good", "ดี", 0xFF15803D),
+    MODERATE("Moderate", "ปานกลาง", 0xFFCA8A04),
+    UNHEALTHY_SENSITIVE("Unhealthy for Sensitive", "เริ่มมีผลต่อสุขภาพ", 0xFFD97706),
+    UNHEALTHY("Unhealthy", "มีผลกระทบต่อสุขภาพ", 0xFFDC2626),
+    HAZARDOUS("Hazardous", "อันตราย", 0xFF991B1B);
 
     companion object {
         fun fromPm25(pm25: Double): AirQualityCategory = when {
@@ -173,10 +173,10 @@ enum class RiskType(val label: String) {
 }
 
 enum class AlertSeverity(val level: Int, val label: String, val hexColor: Long) {
-    ADVISORY(1, "Advisory", 0xFF29B6F6),
-    WATCH(2, "Watch", 0xFFFFCA28),
-    WARNING(3, "Warning", 0xFFFF7043),
-    EMERGENCY(4, "Emergency", 0xFFD32F2F)
+    ADVISORY(1, "Advisory", 0xFF0891B2),
+    WATCH(2, "Watch", 0xFFCA8A04),
+    WARNING(3, "Warning", 0xFFDC2626),
+    EMERGENCY(4, "Emergency", 0xFF991B1B)
 }
 
 /**
@@ -209,5 +209,6 @@ data class UserPreferences(
     val notifyOfficialWarnings: Boolean = true,
     val notifyForecastRisks: Boolean = true,
     val notifyAirQuality: Boolean = true,
-    val autoRefreshIntervalMinutes: Int = 30
+    val autoRefreshIntervalMinutes: Int = 30,
+    val darkMode: Boolean = false
 )
