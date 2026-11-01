@@ -9,3 +9,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Keystore & signing artifacts
+release.jks
+*.jks
+*.idsig
+temp_test.apk
+release/*-signed.apk
+

@@ -16,7 +16,7 @@
 
 Ready to use the app right now? Download the pre-built, installable APK package below:
 
-📦 **[Download Thailand Weather Intelligence v1.0.0 APK](release/thailand-weather-v1.0.0.apk)** *(~22.5 MB)*
+📦 **[Download Thailand Weather Intelligence v1.0.0 APK](https://github.com/1ambharath/Weather/releases/download/v1.0.0/thailand-weather-v1.0.0.apk)** *(~19.9 MB)*
 
 ### How to Install on Any Android Device (Android 8.0+)
 1. Download **`thailand-weather-v1.0.0.apk`** to your phone.
