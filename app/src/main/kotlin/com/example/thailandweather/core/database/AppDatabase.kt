@@ -21,7 +21,7 @@ import com.example.thailandweather.core.database.entity.WeatherCacheEntity
         ArticleEntity::class,
         com.example.thailandweather.core.database.entity.AiBriefingEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

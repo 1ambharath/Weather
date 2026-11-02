@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.thailandweather.core.model.AiBriefing
+import com.example.thailandweather.core.model.Place
 import com.example.thailandweather.core.util.WeatherUtils
 import com.example.thailandweather.ui.components.HighlightedMarkdownBulletList
 import com.example.thailandweather.ui.components.HighlightedMarkdownText
@@ -154,7 +156,7 @@ fun AiBriefingScreen(
                 } else if (uiState.briefing != null) {
                     val briefing = uiState.briefing!!
 
-                    // 1. Thailand-wide Daily Summary
+                    // 1. Overall Summary: Thailand-wide Daily Synthesis
                     item {
                         BriefingSectionCard(
                             title = "Thailand Daily Summary",
@@ -170,7 +172,36 @@ fun AiBriefingScreen(
                         }
                     }
 
-                    // 2. Saved Locations Summaries
+                    // 2. User Selected Area Briefing: Dedicated Local Outlook & Telemetry
+                    item {
+                        SelectedAreaBriefingCard(
+                            briefing = briefing,
+                            selectedPlace = uiState.selectedPlace,
+                            savedPlaces = uiState.savedPlaces,
+                            onSelectPlace = { place -> viewModel.selectPlace(place) },
+                            onRefresh = { viewModel.generateBriefing() }
+                        )
+                    }
+
+                    // 3. News and Other Context: TMD Warnings, Flood/Dam Status & Meteorological Articles
+                    if (briefing.newsAndIncidents.isNotBlank()) {
+                        item {
+                            BriefingSectionCard(
+                                title = "News & Incident Context",
+                                icon = Icons.AutoMirrored.Filled.Article,
+                                accentColor = AetherialPalette.AmberText
+                            ) {
+                                HighlightedMarkdownBulletList(
+                                    text = briefing.newsAndIncidents,
+                                    bulletColor = AetherialPalette.AmberWarm,
+                                    highlightColor = MaterialTheme.colorScheme.onSurface,
+                                    textColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    // 4. Saved Locations Summaries
                     if (briefing.locationSummaries.isNotEmpty()) {
                         item {
                             BriefingSectionCard(
@@ -217,23 +248,7 @@ fun AiBriefingScreen(
                         }
                     }
 
-                    // 3. Related News & Incidents
-                    if (briefing.newsAndIncidents.isNotBlank()) {
-                        item {
-                            BriefingSectionCard(
-                                title = "News & Incident Context",
-                                icon = Icons.AutoMirrored.Filled.Article,
-                                accentColor = AetherialPalette.AmberText
-                            ) {
-                                HighlightedMarkdownBulletList(
-                                    text = briefing.newsAndIncidents,
-                                    bulletColor = AetherialPalette.AmberWarm,
-                                    highlightColor = MaterialTheme.colorScheme.onSurface,
-                                    textColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
+
 
                     // 4. Source-Backed Risk Explanations
                     if (briefing.riskExplanations.isNotEmpty()) {
@@ -607,4 +622,239 @@ private fun RiskLevelChip(riskLevel: String) {
             .background(bgColor)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
+}
+
+
+@Composable
+private fun SelectedAreaBriefingCard(
+    briefing: AiBriefing,
+    selectedPlace: Place?,
+    savedPlaces: List<Place>,
+    onSelectPlace: (Place) -> Unit,
+    onRefresh: () -> Unit
+) {
+    val sel = briefing.selectedAreaBriefing
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, NomadKitPalette.Outline),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row: Icon + Title + Risk Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(NomadKitPalette.PrimarySand.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = NomadKitPalette.PrimarySandDeep,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        val displayName = when {
+                            !sel?.placeName.isNullOrBlank() -> "${sel.placeName} Localized Briefing"
+                            selectedPlace != null -> "${selectedPlace.name} Localized Briefing"
+                            else -> "User Selected Area Briefing"
+                        }
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NomadKitPalette.PrimarySandDeep
+                        )
+                        if (!sel?.province.isNullOrBlank()) {
+                            Text(
+                                text = sel.province,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                if (!sel?.riskLevel.isNullOrBlank()) {
+                    RiskLevelChip(riskLevel = sel.riskLevel)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Location Selector Pill & Quick Switcher
+            if (savedPlaces.isNotEmpty()) {
+                Box {
+                    Surface(
+                        onClick = { menuExpanded = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = NomadKitPalette.SurfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, NomadKitPalette.OutlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationSearching,
+                                contentDescription = null,
+                                tint = NomadKitPalette.PrimarySand,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            val activePlaceName = selectedPlace?.name ?: sel?.placeName ?: "Select Area"
+                            Text(
+                                text = "Active Area: $activePlaceName",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                tint = NomadKitPalette.PrimarySand,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        savedPlaces.forEach { place ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = place.name,
+                                            fontWeight = if (place.id == selectedPlace?.id) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        if (place.isDefault) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Default",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = NomadKitPalette.PrimarySand
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onSelectPlace(place)
+                                    onRefresh()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Telemetry Chips / Conditions Highlight
+            if (!sel?.conditionsHighlight.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AetherialPalette.PastelSky.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, AetherialPalette.PastelSkyBorder.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Thermostat,
+                            contentDescription = null,
+                            tint = AetherialPalette.SkyBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = sel.conditionsHighlight,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // Summary Bullets
+            if (sel != null && sel.summary.isNotBlank()) {
+                HighlightedMarkdownBulletList(
+                    text = sel.summary,
+                    bulletColor = NomadKitPalette.PrimarySand,
+                    highlightColor = MaterialTheme.colorScheme.onSurface,
+                    textColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "Tap 'Refresh' to generate the localized telemetry and conditions briefing for ${selectedPlace?.name ?: "this area"}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Travel & Activity Recommendation Pill
+            if (!sel?.travelRecommendation.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AetherialPalette.PastelMint.copy(alpha = 0.45f))
+                        .border(
+                            1.dp,
+                            AetherialPalette.PastelMintBorder.copy(alpha = 0.5f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.DirectionsWalk,
+                        contentDescription = null,
+                        tint = AetherialPalette.MintGreenText,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "Travel & Outdoor Recommendation",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = AetherialPalette.MintGreenText
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        HighlightedMarkdownText(
+                            text = sel.travelRecommendation,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            highlightColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

@@ -18,11 +18,22 @@ import kotlinx.serialization.json.*
 private data class GroqBriefingJson(
     val title: String = "Thailand Meteorological Intelligence Briefing",
     val thailandSummary: String = "",
+    val selectedAreaBriefing: GroqSelectedAreaBriefingJson? = null,
     val locationSummaries: List<GroqLocationSummaryJson> = emptyList(),
     val newsAndIncidents: String = "",
     val riskExplanations: List<GroqRiskExplanationJson> = emptyList(),
     val actionableAdvice: List<String> = emptyList(),
     val sources: List<String> = emptyList()
+)
+
+@Serializable
+private data class GroqSelectedAreaBriefingJson(
+    val placeName: String = "",
+    val province: String = "",
+    val summary: String = "",
+    val conditionsHighlight: String = "",
+    val riskLevel: String = "Low",
+    val travelRecommendation: String = ""
 )
 
 @Serializable
@@ -50,7 +61,7 @@ interface AiRepository {
     suspend fun getAvailableModels(): Result<List<String>>
     val latestBriefingFlow: Flow<AiBriefing?>
     suspend fun getLatestBriefing(): AiBriefing?
-    suspend fun generateBriefing(): Result<AiBriefing>
+    suspend fun generateBriefing(selectedPlaceId: String? = null): Result<AiBriefing>
 }
 
 class DefaultAiRepository(
@@ -126,9 +137,9 @@ class DefaultAiRepository(
 
     /**
      * Generates a new consolidated weather briefing using user-configured Groq key.
-     * Compiles compact context from local places, forecasts, active alerts, and news.
+     * Compiles compact context from user selected area, saved places, forecasts, active alerts, and news.
      */
-    override suspend fun generateBriefing(): Result<AiBriefing> {
+    override suspend fun generateBriefing(selectedPlaceId: String?): Result<AiBriefing> {
         val apiKey = secureKeyStorage.getApiKey()
         if (apiKey.isNullOrBlank()) {
             return Result.failure(GroqException.InvalidKey("Groq API key is not configured"))
@@ -136,27 +147,43 @@ class DefaultAiRepository(
 
         val model = selectedModelFlow.first()
 
+        val allPlaces = placesRepository.allPlaces.first()
+        val defaultPlace = placesRepository.defaultPlace.first() ?: allPlaces.firstOrNull()
+        val targetPlace = if (selectedPlaceId != null) {
+            allPlaces.firstOrNull { it.id == selectedPlaceId } ?: defaultPlace
+        } else {
+            defaultPlace
+        }
+
         // 1. Compile compact factual context
-        val contextPrompt = buildCompactContext()
+        val contextPrompt = buildCompactContext(targetPlace, allPlaces)
 
         val systemPrompt = """
             You are an elite meteorological intelligence assistant for Thailand.
             Synthesize the provided real-world weather readings, official alerts, and news into a brief, punchy, high-impact briefing.
 
+            COVERAGE REQUIREMENTS:
+            1. OVERALL SUMMARY: Deliver a high-level Thailand Daily Summary covering national weather patterns, regional monsoon troughs, nationwide temperature spread, and general air quality.
+            2. USER SELECTED AREA BRIEFING: Provide a dedicated, detailed local outlook specifically for the indicated [USER SELECTED AREA], highlighting current conditions, rain timing, and tailored travel/outdoor advice.
+            3. NEWS AND CONTEXT BRIEFING: Synthesize official government warnings (TMD/DDPM), river discharge status, and recent climate/weather news into bite-sized context.
+
             STRICT FORMATTING REQUIREMENTS:
-            1. BULLET POINTS ONLY: Format the briefing strictly using bullet points (each starting with "• "). NEVER output dense text paragraphs.
-            2. BRIEF & SHORT: Keep each bullet point brief, concise, and bite-sized (1-2 lines maximum). Ensure fast, scannable reading.
+            1. BULLET POINTS ONLY: Format summaries strictly using bullet points (each starting with "• "). NEVER output dense text paragraphs.
+            2. BRIEF & SHORT: Keep each bullet point concise and bite-sized (1-2 lines maximum). Ensure fast, scannable reading.
             3. HIGHLIGHT KEY WORDS & PHRASES: Wrap all critical terms, hazard levels, affected provinces/regions, rainfall amounts, wave heights, timing, and safety advisories in Markdown bold syntax (**word/phrase**).
-               - Examples:
-                 • **Heavy Downpours**: Upper northern provinces including **Chiang Mai** and **Mae Hong Son** face flash flood risks from **15:00 onwards**.
-                 • **Rough Seas Alert**: Andaman Sea waves reaching **2-3 meters**; small boats strongly advised to **remain ashore**.
-                 • **Bangkok Conditions**: Mostly clear at **27°C-33°C** with **good air quality (AQI 42)**.
-                 • **River Discharge**: Rising water levels in the **Chao Phraya basin** near **Ayutthaya**.
             4. FACTUAL INTEGRITY: Base facts strictly on provided data. Never invent warnings or unprovided data.
             5. Respond ONLY with a valid JSON object matching this schema:
             {
               "title": "String",
-              "thailandSummary": "String (Concise bullet points starting with '• ', with key words in **bold**)",
+              "thailandSummary": "String (National overview bullet points starting with '• ', key words in **bold**)",
+              "selectedAreaBriefing": {
+                "placeName": "String",
+                "province": "String",
+                "summary": "String (Detailed local weather outlook starting with '• ', key words in **bold**)",
+                "conditionsHighlight": "String (e.g. '33°C (Feels 39°C) · 20% Rain · UV 7 High')",
+                "riskLevel": "Low | Moderate | High | Severe",
+                "travelRecommendation": "String (Tailored outdoor activity & clothing advice with key actions in **bold**)"
+              },
               "locationSummaries": [
                 {
                   "placeName": "String",
@@ -192,41 +219,53 @@ class DefaultAiRepository(
         }
     }
 
-    private suspend fun buildCompactContext(): String {
-        val places = placesRepository.allPlaces.first()
-        val defaultPlace = placesRepository.defaultPlace.first() ?: places.firstOrNull()
-
-        val snapshot: WeatherSnapshot? = defaultPlace?.let {
-            weatherRepository.getCachedWeatherSnapshot(it.id)
-        }
-
+    private suspend fun buildCompactContext(targetPlace: Place?, allPlaces: List<Place>): String {
         val activeAlerts: List<OfficialAlert> = alertsRepository.activeOfficialAlerts.first().take(4)
         val topNews: List<Article> = newsRepository.allArticles.first().take(3)
 
+        val targetSnapshot: WeatherSnapshot? = targetPlace?.let {
+            weatherRepository.getCachedWeatherSnapshot(it.id)
+                ?: weatherRepository.getWeatherStream(it, forceRefresh = false).first()
+        }
+
         val sb = StringBuilder()
-        sb.appendLine("=== CURRENT THAILAND WEATHER CONTEXT ===")
-        if (snapshot != null) {
-            sb.appendLine("Primary Location: ${snapshot.placeName}")
-            sb.appendLine("Conditions: ${snapshot.weatherDescription}, Temp: ${snapshot.temperatureCelsius}°C (Feels like ${snapshot.apparentTemperatureCelsius}°C)")
-            sb.appendLine("Rain: ${snapshot.precipitationMm} mm, Probability: ${snapshot.precipitationProbability}%")
-            sb.appendLine("Wind: ${snapshot.windSpeedKmh} km/h, UV Index: ${snapshot.uvIndex}")
-            snapshot.airQuality?.let {
-                sb.appendLine("Air Quality: ${it.category.label} (AQI US ${it.aqiUs}, PM2.5: ${it.pm25} µg/m³)")
-            }
-            snapshot.marine?.let {
-                sb.appendLine("Marine State: Wave height ${it.waveHeightMeters}m, Rough seas: ${it.isRoughSea}")
+        sb.appendLine("=== CURRENT THAILAND METEOROLOGICAL CONTEXT ===")
+
+        // 1. User Selected Area
+        if (targetPlace != null) {
+            sb.appendLine("\n[USER SELECTED AREA: ${targetPlace.name.uppercase()} (${targetPlace.province.uppercase()})]")
+            if (targetSnapshot != null) {
+                sb.appendLine("Conditions: ${targetSnapshot.weatherDescription}, Temp: ${targetSnapshot.temperatureCelsius}°C (Feels like ${targetSnapshot.apparentTemperatureCelsius}°C)")
+                sb.appendLine("Rain: ${targetSnapshot.precipitationMm} mm, Probability: ${targetSnapshot.precipitationProbability}%")
+                sb.appendLine("Wind: ${targetSnapshot.windSpeedKmh} km/h, UV Index: ${targetSnapshot.uvIndex}")
+                targetSnapshot.airQuality?.let {
+                    sb.appendLine("Air Quality: ${it.category.label} (AQI US ${it.aqiUs}, PM2.5: ${it.pm25} µg/m³)")
+                }
+                targetSnapshot.marine?.let {
+                    sb.appendLine("Marine State: Wave height ${it.waveHeightMeters}m, Rough seas: ${it.isRoughSea}")
+                }
+            } else {
+                sb.appendLine("Location: ${targetPlace.name}, ${targetPlace.province}, Coastal: ${targetPlace.isCoastal}")
             }
         }
 
-        if (places.isNotEmpty()) {
-            sb.appendLine("\n=== SAVED USER PLACES ===")
-            places.take(5).forEach { p ->
-                sb.appendLine("- ${p.name} (${p.province}), Coastal: ${p.isCoastal}")
+        // 2. Saved User Places
+        val otherPlaces = allPlaces.filter { it.id != targetPlace?.id }.take(4)
+        if (otherPlaces.isNotEmpty()) {
+            sb.appendLine("\n[OTHER SAVED USER DESTINATIONS]")
+            otherPlaces.forEach { p ->
+                val snap = weatherRepository.getCachedWeatherSnapshot(p.id)
+                if (snap != null) {
+                    sb.appendLine("- ${p.name} (${p.province}): ${snap.temperatureCelsius}°C, ${snap.weatherDescription}, Rain: ${snap.precipitationProbability}%")
+                } else {
+                    sb.appendLine("- ${p.name} (${p.province}), Coastal: ${p.isCoastal}")
+                }
             }
         }
 
+        // 3. Official Active Government Alerts
         if (activeAlerts.isNotEmpty()) {
-            sb.appendLine("\n=== OFFICIAL ACTIVE GOVERNMENT ALERTS (TMD / DDPM) ===")
+            sb.appendLine("\n[OFFICIAL ACTIVE GOVERNMENT ALERTS (TMD / DDPM)]")
             activeAlerts.forEach { alert ->
                 sb.appendLine("- [${alert.severity.label}] ${alert.title} | Source: ${alert.source} | Affected: ${alert.affectedProvinces.joinToString()}")
             }
@@ -234,8 +273,9 @@ class DefaultAiRepository(
             sb.appendLine("\nOfficial Alerts: No active critical emergency alerts currently issued by TMD/DDPM.")
         }
 
+        // 4. Recent Meteorological & Climate News
         if (topNews.isNotEmpty()) {
-            sb.appendLine("\n=== RECENT METEOROLOGICAL & CLIMATE NEWS ===")
+            sb.appendLine("\n[RECENT METEOROLOGICAL & CLIMATE NEWS]")
             topNews.forEach { article ->
                 sb.appendLine("- ${article.title} (${article.publisher}): ${article.summary.take(160)}")
             }
@@ -311,11 +351,33 @@ class DefaultAiRepository(
                     }
                     else -> emptyList()
                 }
+                val selectedAreaBriefing = when (val selElem = element["selectedAreaBriefing"]) {
+                    is JsonObject -> {
+                        val placeName = selElem["placeName"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val province = selElem["province"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val summary = selElem["summary"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val conditionsHighlight = selElem["conditionsHighlight"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val riskLevel = selElem["riskLevel"]?.jsonPrimitive?.contentOrNull ?: "Low"
+                        val travelRecommendation = selElem["travelRecommendation"]?.jsonPrimitive?.contentOrNull ?: ""
+                        if (placeName.isNotBlank() || summary.isNotBlank()) {
+                            GroqSelectedAreaBriefingJson(
+                                placeName = placeName,
+                                province = province,
+                                summary = summary,
+                                conditionsHighlight = conditionsHighlight,
+                                riskLevel = riskLevel,
+                                travelRecommendation = travelRecommendation
+                            )
+                        } else null
+                    }
+                    else -> null
+                }
 
                 if (thailandSummary.isNotBlank()) {
                     return GroqBriefingJson(
                         title = title,
                         thailandSummary = thailandSummary,
+                        selectedAreaBriefing = selectedAreaBriefing,
                         locationSummaries = locationSummaries,
                         newsAndIncidents = newsAndIncidents,
                         riskExplanations = riskExplanations,
@@ -383,6 +445,7 @@ class DefaultAiRepository(
             id = "latest_briefing",
             title = title.ifBlank { "Thailand Meteorological Intelligence Briefing" },
             thailandSummary = thailandSummary.ifBlank { defaultBullets },
+            selectedAreaBriefingJson = selectedAreaBriefing?.let { jsonParser.encodeToString(it) } ?: "{}",
             locationSummariesJson = jsonParser.encodeToString(locationSummaries),
             newsAndIncidents = newsAndIncidents,
             riskExplanationsJson = jsonParser.encodeToString(riskExplanations),
@@ -396,6 +459,24 @@ class DefaultAiRepository(
     }
 
     private fun AiBriefingEntity.toDomain(jsonParser: Json): AiBriefing {
+        val selectedArea: AiSelectedAreaBriefing? = try {
+            if (selectedAreaBriefingJson.isNotBlank() && selectedAreaBriefingJson != "{}") {
+                val parsed = jsonParser.decodeFromString<GroqSelectedAreaBriefingJson>(selectedAreaBriefingJson)
+                if (parsed.placeName.isNotBlank() || parsed.summary.isNotBlank()) {
+                    AiSelectedAreaBriefing(
+                        placeName = parsed.placeName,
+                        province = parsed.province,
+                        summary = parsed.summary,
+                        conditionsHighlight = parsed.conditionsHighlight,
+                        riskLevel = parsed.riskLevel,
+                        travelRecommendation = parsed.travelRecommendation
+                    )
+                } else null
+            } else null
+        } catch (_: Exception) {
+            null
+        }
+
         val locations: List<AiLocationSummary> = try {
             val list = jsonParser.decodeFromString<List<GroqLocationSummaryJson>>(locationSummariesJson)
             list.map { AiLocationSummary(it.placeName, it.summary, it.riskLevel) }
@@ -429,6 +510,7 @@ class DefaultAiRepository(
             id = id,
             title = title,
             thailandSummary = thailandSummary,
+            selectedAreaBriefing = selectedArea,
             locationSummaries = locations,
             newsAndIncidents = newsAndIncidents,
             riskExplanations = risks,

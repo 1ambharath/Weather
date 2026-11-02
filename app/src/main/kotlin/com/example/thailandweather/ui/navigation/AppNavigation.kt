@@ -151,7 +151,7 @@ fun AppNavigation(
     )
 
     val aiBriefingViewModel: AiBriefingViewModel = viewModel(
-        factory = AiBriefingViewModel.Factory(app.aiRepository)
+        factory = AiBriefingViewModel.Factory(app.aiRepository, app.placesRepository)
     )
 
     when (currentDestination) {

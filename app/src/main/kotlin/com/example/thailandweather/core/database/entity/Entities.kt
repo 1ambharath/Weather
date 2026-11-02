@@ -97,6 +97,7 @@ data class AiBriefingEntity(
     @PrimaryKey val id: String = "latest_briefing",
     val title: String,
     val thailandSummary: String,
+    val selectedAreaBriefingJson: String = "{}",
     val locationSummariesJson: String,
     val newsAndIncidents: String,
     val riskExplanationsJson: String,

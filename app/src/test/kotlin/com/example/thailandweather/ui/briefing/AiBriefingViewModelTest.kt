@@ -36,11 +36,22 @@ class AiBriefingViewModelTest {
             Result.success(listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant"))
         override val latestBriefingFlow: Flow<AiBriefing?> = briefingFlow
         override suspend fun getLatestBriefing(): AiBriefing? = briefingFlow.value
-        override suspend fun generateBriefing(): Result<AiBriefing> {
+        var lastRequestedPlaceId: String? = null
+
+        override suspend fun generateBriefing(selectedPlaceId: String?): Result<AiBriefing> {
+            lastRequestedPlaceId = selectedPlaceId
             if (!keyConfigured) return Result.failure(Exception("Groq API key is not configured"))
             val generated = AiBriefing(
                 title = "Generated Thailand Intelligence Briefing",
                 thailandSummary = "Seasonal monsoon showers tapering off in the north.",
+                selectedAreaBriefing = com.example.thailandweather.core.model.AiSelectedAreaBriefing(
+                    placeName = "Bangkok",
+                    province = "Bangkok",
+                    summary = "Scattered light showers during evening commute.",
+                    conditionsHighlight = "33°C / Feels 39°C • 20% Rain • 12 km/h Wind • UV 7 High",
+                    riskLevel = "Low",
+                    travelRecommendation = "Ideal for morning errands; carry light umbrella."
+                ),
                 newsAndIncidents = "TMD confirms typhoon threat averted.",
                 sources = listOf("TMD", "Open-Meteo"),
                 isCached = true
@@ -122,5 +133,24 @@ class AiBriefingViewModelTest {
         assertNull(viewModel.uiState.value.error)
         assertNotNull(viewModel.uiState.value.briefing)
         assertEquals("Generated Thailand Intelligence Briefing", viewModel.uiState.value.briefing!!.title)
+    }
+
+    @Test
+    fun testGenerateBriefingIncludesSelectedAreaBriefing() = runTest {
+        val repository = FakeBriefingRepository(keyConfigured = true)
+        val viewModel = AiBriefingViewModel(repository)
+
+        testScheduler.advanceUntilIdle()
+        assertNull(viewModel.uiState.value.briefing)
+
+        viewModel.generateBriefing()
+        testScheduler.advanceUntilIdle()
+
+        val briefing = viewModel.uiState.value.briefing
+        assertNotNull(briefing)
+        assertNotNull(briefing!!.selectedAreaBriefing)
+        assertEquals("Bangkok", briefing.selectedAreaBriefing.placeName)
+        assertEquals("Low", briefing.selectedAreaBriefing.riskLevel)
+        assertTrue(briefing.selectedAreaBriefing!!.conditionsHighlight.contains("33°C"))
     }
 }

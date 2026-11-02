@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.2] - 2026-11-02
+
+### 🚀 What Was Added
+* **3-Tier Meteorological Intelligence Briefing**:
+  * **Overall Summary (National Synthesis)**: High-level overview covering nationwide monsoon troughs, regional synoptic patterns, and general air quality spread across all 77 provinces.
+  * **User Selected Area Briefing (Dedicated Local Analysis)**: Dedicated primary card providing live telemetry chips (`Temp / Feels-like`, `Rain %`, `Wind`, `UV`, `Marine`), risk assessment badge (`LOW RISK`, `MODERATE RISK`, etc.), concise localized bulleted forecast, and tailored travel recommendations.
+  * **News & Incident Context**: Integrated government weather bulletins (TMD), emergency disaster risk reports (DDPM), river basin/dam flood discharge notifications, and recent meteorological news articles.
+* **Interactive Active Area Switcher**:
+  * Added quick-switch dropdown menu directly inside the AI Briefing view, enabling users to seamlessly pivot their localized briefing across all saved destinations (Bangkok, Chiang Mai, Phuket, etc.) and refresh on demand.
+* **Room Database v3 Schema**:
+  * Added `selectedAreaBriefingJson` column to `AiBriefingEntity` to persist localized telemetry, risk ratings, and travel advice for instant offline reading.
+
+### 🛠️ What Was Fixed & Optimized
+* **Multi-Place Telemetry Aggregation**:
+  * Updated `DefaultAiRepository.buildCompactContext` to inject comprehensive meteorological telemetry for both the selected active place and all saved destinations into Groq LLM synthesis context.
+* **Deterministic In-Place Updates**:
+  * Verified production APK signature consistency (`v2 + v3`) signed with `release.jks`. Users can update smoothly from `v1.0.0` and `v1.0.1` without uninstalling.
+
+### 📦 Artifact Verification
+* **File Name**: `thailand-weather-v1.0.2.apk`
+* **File Size**: 3,180,469 bytes (~3.18 MB)
+* **SHA-256**: `77D093608B6BCBD4CF87BB53D6D678083F54C1FF832ED6DF57D8897C19FD9BF6`
+* **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+
+---
+
 ## [v1.0.1] - 2026-11-02
 
 ### 🛠️ What Was Fixed

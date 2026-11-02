@@ -65,6 +65,7 @@ data class AiBriefing(
     val id: String = "latest_briefing",
     val title: String,
     val thailandSummary: String,
+    val selectedAreaBriefing: AiSelectedAreaBriefing? = null,
     val locationSummaries: List<AiLocationSummary> = emptyList(),
     val newsAndIncidents: String = "",
     val riskExplanations: List<AiRiskExplanation> = emptyList(),
@@ -74,6 +75,19 @@ data class AiBriefing(
     val generatedAt: Long = System.currentTimeMillis(),
     val isCached: Boolean = false,
     val isStale: Boolean = false
+)
+
+/**
+ * Detailed briefing for the user's currently selected / active location.
+ */
+@Serializable
+data class AiSelectedAreaBriefing(
+    val placeName: String = "",
+    val province: String = "",
+    val summary: String = "",
+    val conditionsHighlight: String = "",
+    val riskLevel: String = "Low", // "Low", "Moderate", "High", "Severe"
+    val travelRecommendation: String = ""
 )
 
 @Serializable
