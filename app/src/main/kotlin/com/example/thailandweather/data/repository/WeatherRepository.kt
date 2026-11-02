@@ -214,7 +214,7 @@ class WeatherRepository(
         resultMap
     }
 
-    private fun createFallbackSnapshot(place: Place): WeatherSnapshot {
+    fun createFallbackSnapshot(place: Place): WeatherSnapshot {
         return WeatherSnapshot(
             placeId = place.id,
             placeName = place.name,
@@ -238,7 +238,7 @@ class WeatherRepository(
         )
     }
 
-    private fun createFallbackHourly(place: Place): List<HourlyForecast> {
+    fun createFallbackHourly(place: Place): List<HourlyForecast> {
         val now = System.currentTimeMillis()
         return (0..23).map { i ->
             HourlyForecast(

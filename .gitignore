@@ -21,3 +21,6 @@ release/*-signed.apk
 # Signing configuration (contains keystore passwords — never commit)
 keystore.properties
 
+
+.kotlin/
+

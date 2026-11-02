@@ -52,6 +52,9 @@ class WeatherSyncWorker(
                 }
             }
 
+            // 4. Update all active home screen widgets
+            com.example.thailandweather.widget.WeatherWidgetManager.updateAllWidgets(applicationContext)
+
             Result.success()
         } catch (e: Exception) {
             Result.retry()

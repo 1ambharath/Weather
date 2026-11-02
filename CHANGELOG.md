@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.5] - 2026-11-02
+
+### 📱 New Features & Capabilities
+* **Interactive Multi-Location Compact Home Screen Widget**:
+  * **Compact Low-Profile Form Factor (`widget_compact_weather_4x2`)**: Engineered a space-efficient 4x2 Android widget (`minHeight="85dp"`, `minWidth="240dp"`) utilizing frosted glass styling (`bg_widget_compact_glass`) and high information density.
+  * **Vertical Location Selector (▲ / ▼)**: Interactive navigation arrows flanking the active location header (e.g. `Bangkok (1/3)`, `Pattaya (2/3)`, `Phuket (3/3)`) allowing users to cycle smoothly through all saved locations from the home screen.
+  * **Synchronous Telemetry & 4-Hour Dynamic Outlook**: Switching the location instantly updates both the left-side telemetry (live temperature, weather glyph, feels-like, AQI, precipitation probability) and the right-side 4-hour forecast cards (`NOW`, `15:00`, `16:00`, `17:00`) for that exact selected place.
+  * **Native Zero-Lag RemoteViews Architecture**: Powered by `WeatherAppWidgetProvider` and `WeatherWidgetManager` with per-widget SharedPreferences index persistence (`widget_location_idx_${appWidgetId}`) and direct Room cache queries for < 15ms instantaneous rendering.
+  * **Background Synchronization**: Integrated with `WeatherSyncWorker` (30-minute interval) and on-demand micro-refresh button (`ic_widget_refresh`).
+  * **Direct Deep-Linking**: Tapping anywhere on the widget opens the app with `EXTRA_PLACE_ID` automatically focused on the active location.
+
+### 📦 Artifact Verification
+* **File Name**: `thailand-weather-v1.0.5.apk`
+* **File Size**: 3,819,786 bytes (~3.82 MB)
+* **SHA-256**: `DC9ED5185B282EA6DB2F69B7CCB6563FFE8C3187997BBCD7B0D9E38CB608C90D`
+* **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+
+---
+
 ## [v1.0.4] - 2026-11-02
 
 ### 🎨 What Was Changed & Refined

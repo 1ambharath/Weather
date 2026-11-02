@@ -22,8 +22,8 @@ android {
     applicationId = "com.example.thailandweather"
     minSdk = 26
     targetSdk = 35
-    versionCode = 5
-    versionName = "1.0.4"
+    versionCode = 6
+    versionName = "1.0.5"
   }
 
   // Production signing config — same keystore for every release so Android
@@ -45,7 +45,7 @@ android {
   buildTypes {
     release {
       isMinifyEnabled = true
-      isShrinkResources = true
+      isShrinkResources = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Always sign release builds with the production keystore
       signingConfig = signingConfigs.getByName("release")

@@ -32,6 +32,20 @@
         <receiver
             android:name=".notification.NotificationDismissReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".widget.WeatherAppWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.thailandweather.widget.ACTION_PREV_LOCATION" />
+                <action android:name="com.example.thailandweather.widget.ACTION_NEXT_LOCATION" />
+                <action android:name="com.example.thailandweather.widget.ACTION_REFRESH_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_compact_info" />
+        </receiver>
     </application>
 
 </manifest>

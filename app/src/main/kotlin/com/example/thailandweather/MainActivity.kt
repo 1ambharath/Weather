@@ -40,6 +40,11 @@ class MainActivity : ComponentActivity() {
       ) { /* Permission response handled */ }
 
       LaunchedEffect(Unit) {
+          val widgetPlaceId = intent?.getStringExtra(com.example.thailandweather.widget.WeatherWidgetManager.EXTRA_PLACE_ID)
+          if (!widgetPlaceId.isNullOrBlank()) {
+              app.placesRepository.setDefaultPlace(widgetPlaceId)
+          }
+
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
               if (ContextCompat.checkSelfPermission(
                       this@MainActivity,
