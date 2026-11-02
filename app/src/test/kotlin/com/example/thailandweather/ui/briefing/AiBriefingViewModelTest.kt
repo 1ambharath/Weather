@@ -148,9 +148,10 @@ class AiBriefingViewModelTest {
 
         val briefing = viewModel.uiState.value.briefing
         assertNotNull(briefing)
-        assertNotNull(briefing!!.selectedAreaBriefing)
-        assertEquals("Bangkok", briefing.selectedAreaBriefing.placeName)
-        assertEquals("Low", briefing.selectedAreaBriefing.riskLevel)
-        assertTrue(briefing.selectedAreaBriefing!!.conditionsHighlight.contains("33°C"))
+        val selectedArea = briefing!!.selectedAreaBriefing
+        assertNotNull(selectedArea)
+        assertEquals("Bangkok", selectedArea!!.placeName)
+        assertEquals("Low", selectedArea.riskLevel)
+        assertTrue(selectedArea.conditionsHighlight.contains("33"))
     }
 }

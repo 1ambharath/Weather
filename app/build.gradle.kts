@@ -21,9 +21,9 @@ android {
   defaultConfig {
     applicationId = "com.example.thailandweather"
     minSdk = 26
-    targetSdk = 36
-    versionCode = 3
-    versionName = "1.0.2"
+    targetSdk = 35
+    versionCode = 4
+    versionName = "1.0.3"
   }
 
   // Production signing config — same keystore for every release so Android
@@ -51,8 +51,9 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      // Keep debug builds independent — they use the debug keystore by default
-      applicationIdSuffix = ".debug"
+      // PERMANENT FIX: Sign debug builds with production release.jks and identical package name
+      // so builds from Android Studio and release APKs can update seamlessly in-place without uninstalling!
+      signingConfig = signingConfigs.getByName("release")
       versionNameSuffix = "-debug"
     }
   }

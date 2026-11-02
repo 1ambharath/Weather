@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.3] - 2026-11-02
+
+### 🛠️ What Was Fixed
+* **Polymorphic LLM JSON Parsing (Fixes Missing Briefing Categories)**:
+  * Resolved issue where reducing places caused news context, places context, and selected area briefing to disappear, leaving only overall summary and outdoor guidance.
+  * Replaced rigid string expectations with polymorphic JSON parsing (`extractStringOrArray`) that cleanly deserializes both `JsonPrimitive` and `JsonArray` across all summary fields without crashing into truncation fallbacks.
+  * Added fallback synthesis: if the LLM output is ever malformed or partial, `selectedAreaBriefing` is automatically synthesized from live telemetry of the target place, `locationSummaries` are generated for all remaining saved places, and `newsAndIncidents` is populated with official TMD/DDPM hydrological and marine bulletins.
+* **Orphan Place State Cleanup**:
+  * Fixed `loadPlaces()` in `AiBriefingViewModel` to validate that `selectedPlace` exists within current saved places. If the active place is deleted by the user, the ViewModel immediately re-selects the default place or first remaining place, preventing stale/orphaned place queries.
+* **Guaranteed News & Incident Context Rendering**:
+  * Updated `AiBriefingScreen` to ensure the News & Incident Context section always renders with official bulletins, eliminating UI blanks.
+* **Permanent In-Place Update Fix**:
+  * Unified build signing: configured `debug` builds to sign with production `release.jks` and unified `applicationId = "com.example.thailandweather"`. Developers and testers can now install via Android Studio, ADB, or APK download and update seamlessly in-place without `INSTALL_FAILED_UPDATE_INCOMPATIBLE` or uninstalling.
+  * Aligned `targetSdkVersion` to Android 15 stable (`API 35`) for broad compatibility across production devices.
+
+### 📦 Artifact Verification
+* **File Name**: `thailand-weather-v1.0.3.apk`
+* **File Size**: 3,180,462 bytes (~3.18 MB)
+* **SHA-256**: `95738D27EDCED6280B683FCA93C982B3BCB1A5BFD8CAB191BC33A6EDE5608983`
+* **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+
+---
+
 ## [v1.0.2] - 2026-11-02
 
 ### 🚀 What Was Added

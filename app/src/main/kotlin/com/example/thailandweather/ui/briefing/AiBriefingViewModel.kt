@@ -53,9 +53,13 @@ class AiBriefingViewModel(
         viewModelScope.launch {
             placesRepository.allPlaces.collectLatest { places ->
                 _uiState.update { current ->
-                    val active = current.selectedPlace
-                        ?: places.firstOrNull { it.isDefault }
-                        ?: places.firstOrNull()
+                    // Validate that current selectedPlace still exists in saved places;
+                    // if it was deleted, immediately reset to default or first remaining place
+                    val active = if (places.any { it.id == current.selectedPlace?.id }) {
+                        current.selectedPlace
+                    } else {
+                        places.firstOrNull { it.isDefault } ?: places.firstOrNull()
+                    }
                     current.copy(
                         savedPlaces = places,
                         selectedPlace = active
@@ -69,7 +73,7 @@ class AiBriefingViewModel(
         _uiState.update { it.copy(selectedPlace = place) }
     }
 
-    fun generateBriefing(placeId: String? = _uiState.value.selectedPlace?.id) {
+    fun generateBriefing(placeId: String? = null) {
         viewModelScope.launch {
             val hasKey = aiRepository.hasConfiguredKey()
             if (!hasKey) {
@@ -84,7 +88,14 @@ class AiBriefingViewModel(
 
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val targetId = placeId ?: _uiState.value.selectedPlace?.id
+            // Ensure we never pass an orphaned or deleted place id
+            val currentPlaces = _uiState.value.savedPlaces
+            val targetId = if (placeId != null && currentPlaces.any { it.id == placeId }) {
+                placeId
+            } else {
+                _uiState.value.selectedPlace?.id ?: currentPlaces.firstOrNull { it.isDefault }?.id ?: currentPlaces.firstOrNull()?.id
+            }
+
             val result = aiRepository.generateBriefing(targetId)
             result.fold(
                 onSuccess = { newBriefing ->
