@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.4] - 2026-11-02
+
+### 🎨 What Was Changed & Refined
+* **Center Alignment of Hourly Outlook**:
+  * **Centered Section Header**: Refactored the "Hourly Outlook" section title and `Icons.Default.AccessTime` clock icon to be strictly center-aligned across the horizontal viewport.
+  * **Centered Range Pill Badge**: Placed the dynamic 24-hour range badge (`NEXT 24H · TODAY → TOMORROW`) centrally beneath the header in a soft pastel indigo pill container.
+  * **Card Internals Centering**: Expanded the child Column within each 88dp card with `Modifier.fillMaxWidth()` and `horizontalAlignment = Alignment.CenterHorizontally`.
+  * **Strict Typography Alignment**: Applied `TextAlign.Center` and full-width alignment across day labels (`TODAY`, `TOMORROW`), calendar date labels (`2 Nov`, `3 Nov`), hour labels (`NOW`, `14:00`), weather icons, temperature readings (`33°C`), and rain probabilities (`20%`).
+  * **Centered Skeleton Loading State**: Centered the title shimmer box in `NomadSkeletonHourlyRow` to maintain smooth visual symmetry during initial loading.
+
+### 📦 Artifact Verification
+* **File Name**: `thailand-weather-v1.0.4.apk`
+* **File Size**: 3,180,455 bytes (~3.18 MB)
+* **SHA-256**: `8C721A6E453B5AD997F27F131735AB6C874AE22F3799A72E41A7834B50E321DB`
+* **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+
+---
+
 ## [v1.0.3] - 2026-11-02
 
 ### 🛠️ What Was Fixed

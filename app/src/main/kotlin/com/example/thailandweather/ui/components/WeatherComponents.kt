@@ -28,6 +28,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -395,15 +396,21 @@ fun HourlyForecastSection(
 ) {
     if (hourly.isEmpty()) return
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Centered Header & Dynamic Range Badge
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
                 Icon(
                     imageVector = Icons.Default.AccessTime,
                     contentDescription = null,
@@ -415,27 +422,40 @@ fun HourlyForecastSection(
                     text = "Hourly Outlook",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = AetherialPalette.DeepSlateNavy
+                    color = AetherialPalette.DeepSlateNavy,
+                    textAlign = TextAlign.Center
                 )
             }
+            Spacer(modifier = Modifier.height(4.dp))
             val rangeLabel = if (hourly.isNotEmpty()) {
                 val endItem = hourly.take(24).last()
                 "NEXT 24H · " + WeatherUtils.formatHourlyRange(hourly.first().time, endItem.time).uppercase()
             } else {
                 "NEXT 24H →"
             }
-            Text(
-                text = rangeLabel,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = AetherialPalette.IndigoAccent,
-                letterSpacing = 0.5.sp
-            )
+            Surface(
+                shape = CircleShape,
+                color = AetherialPalette.PastelIndigo.copy(alpha = 0.6f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AetherialPalette.PastelIndigoBorder.copy(alpha = 0.8f))
+            ) {
+                Text(
+                    text = rangeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = AetherialPalette.IndigoAccent,
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp)
+            contentPadding = PaddingValues(horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
             items(hourly.take(24)) { item ->
                 val isDark = MaterialTheme.colorScheme.background == AetherialPalette.DarkBackground
@@ -458,7 +478,9 @@ fun HourlyForecastSection(
                     modifier = Modifier.width(88.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Day Label (Today / Tomorrow / Mon)
@@ -466,14 +488,18 @@ fun HourlyForecastSection(
                             text = WeatherUtils.formatHourlyDay(item.time),
                             fontSize = 10.sp,
                             fontWeight = if (isFirst) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor.copy(alpha = 0.8f)
+                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         // Date Label (2 Nov / 3 Nov)
                         Text(
                             text = WeatherUtils.formatHourlyDateOnly(item.time),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Medium,
-                            color = if (isFirst) AetherialPalette.IndigoAccent.copy(alpha = 0.85f) else textColor.copy(alpha = 0.6f)
+                            color = if (isFirst) AetherialPalette.IndigoAccent.copy(alpha = 0.85f) else textColor.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                         // Hour / "NOW"
@@ -481,24 +507,37 @@ fun HourlyForecastSection(
                             text = if (isFirst) "NOW" else WeatherUtils.formatTime(item.time),
                             fontSize = 12.sp,
                             fontWeight = if (isFirst) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor
+                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        Icon(
-                            imageVector = getWeatherIcon(item.weatherCode),
-                            contentDescription = item.weatherDescription,
-                            tint = iconTint,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = getWeatherIcon(item.weatherCode),
+                                contentDescription = item.weatherDescription,
+                                tint = iconTint,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = WeatherUtils.formatTemperature(item.temperatureCelsius, isCelsius),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = if (isDark) AetherialPalette.DarkText else AetherialPalette.DeepSlateNavy
+                            color = if (isDark) AetherialPalette.DarkText else AetherialPalette.DeepSlateNavy,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.WaterDrop,
                                 contentDescription = null,
@@ -879,10 +918,22 @@ fun NomadSkeletonHeroCard(modifier: Modifier = Modifier) {
  */
 @Composable
 fun NomadSkeletonHourlyRow(modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.width(120.dp).height(18.dp).clip(RoundedCornerShape(4.dp)).nomadShimmer())
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .width(120.dp)
+                .height(18.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .nomadShimmer()
+        )
         Spacer(modifier = Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
+        ) {
             repeat(4) {
                 Box(
                     modifier = Modifier
