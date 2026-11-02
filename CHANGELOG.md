@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.1] - 2026-11-02
+
+### 🛠️ What Was Fixed
+* **Dynamic 24-Hour Sliding Window (Fixes #1)**:
+  * Resolved issue where hourly outlook started at `00:00` midnight of today and stopped at `23:00`, displaying past hours instead of future hours.
+  * Implemented an ongoing-hour sliding window in `OpenMeteoWeatherProvider.kt` that detects the current hour in `Asia/Bangkok` time and dynamically selects the next 24 consecutive hours spanning today into tomorrow.
+* **Date Context on Hourly Cards (Fixes #1)**:
+  * Added day indicator (`Today`, `Tomorrow`, or weekday) and calendar date (`d MMM`, e.g. `2 Nov`, `3 Nov`) to each hourly card in `WeatherComponents.kt`.
+  * Users can now clearly identify which day each forecast hour belongs to when scrolling across midnight.
+* **Dynamic Range Section Header**:
+  * Updated the hourly section header from a static label to show the active date range (e.g., `NEXT 24H · TODAY → TOMORROW`).
+* **Timezone Consistency**:
+  * Standardized timestamp parsing and formatting to Thailand's local timezone (`Asia/Bangkok`) so forecast hours remain accurate for travelers and trip planners worldwide.
+
+### 📦 Artifact Verification
+* **File Name**: `thailand-weather-v1.0.1.apk`
+* **File Size**: 3,164,086 bytes (~3.16 MB)
+* **SHA-256**: `093E58CEF43FD1CF4F517C74CEF5E6174206627EF517CC170225D114E7EA53E0`
+* **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+
+---
+
 ## [v1.0.0] - 2026-11-01
 
 ### 🚀 What Was Added
@@ -48,3 +70,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **File Size**: 3,164,072 bytes (~3.16 MB)
 * **SHA-256**: `E543F7106A298C47AC782269550610F053B2B32B2041ED8B7DCEBC5900E2C495`
 * **Certificate SHA-256**: `6bf5bb7ca85e36749ce63faa92e4d04628de5be088b5a2538adbc5f75c7e4dd8`
+

@@ -182,20 +182,23 @@ class OpenMeteoWeatherProvider(
             val response = forecastApi.getForecast(place.latitude, place.longitude)
             val hourlyDto = response.hourly ?: return@withContext Result.success(emptyList())
 
-            val list = mutableListOf<HourlyForecast>()
-            val count = minOf(hourlyDto.time.size, 24) // Next 24 hours
-            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.US)
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("Asia/Bangkok")
+            }
+            val now = System.currentTimeMillis()
 
-            for (i in 0 until count) {
+            // Parse all available hourly slots from Open-Meteo
+            val allHourly = mutableListOf<HourlyForecast>()
+            for (i in hourlyDto.time.indices) {
                 val timeStr = hourlyDto.time.getOrNull(i) ?: continue
                 val timeMillis = try {
-                    sdf.parse(timeStr)?.time ?: (System.currentTimeMillis() + i * 3600_000L)
+                    sdf.parse(timeStr)?.time ?: (now + i * 3600_000L)
                 } catch (e: Exception) {
-                    System.currentTimeMillis() + i * 3600_000L
+                    now + i * 3600_000L
                 }
 
                 val code = hourlyDto.weatherCode.getOrNull(i) ?: 0
-                list.add(
+                allHourly.add(
                     HourlyForecast(
                         time = timeMillis,
                         temperatureCelsius = hourlyDto.temperature2m.getOrNull(i) ?: 28.0,
@@ -209,7 +212,18 @@ class OpenMeteoWeatherProvider(
                     )
                 )
             }
-            Result.success(list)
+
+            // Find the starting index for the current ongoing hour:
+            // An hour interval covers [timeMillis, timeMillis + 1 hour).
+            // The ongoing hour is the first hour where timeMillis + 1h > now.
+            val startIndex = allHourly.indexOfFirst { forecast ->
+                forecast.time + 3600_000L > now
+            }.let { if (it >= 0) it else 0 }
+
+            // Take the next 24 hours starting from the ongoing hour (sliding 24h window)
+            val next24Hours = allHourly.drop(startIndex).take(24)
+
+            Result.success(next24Hours)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -56,4 +56,31 @@ class WeatherUtilsTest {
         assertEquals(AirQualityCategory.UNHEALTHY, AirQualityCategory.fromPm25(120.0))
         assertEquals(AirQualityCategory.HAZARDOUS, AirQualityCategory.fromPm25(180.0))
     }
+
+    @Test
+    fun testHourlyDateAndDayFormatting() {
+        val tz = java.util.TimeZone.getTimeZone("Asia/Bangkok")
+        val calNow = java.util.Calendar.getInstance(tz).apply {
+            set(2026, java.util.Calendar.NOVEMBER, 2, 10, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val nowMillis = calNow.timeInMillis
+
+        // Same day (Today)
+        assertEquals("Today", WeatherUtils.formatHourlyDay(nowMillis + 3600_000L, nowMillis))
+        assertEquals("2 Nov", WeatherUtils.formatHourlyDateOnly(nowMillis))
+
+        // Next day (Tomorrow)
+        val tomorrowMillis = nowMillis + 24 * 3600_000L
+        assertEquals("Tomorrow", WeatherUtils.formatHourlyDay(tomorrowMillis, nowMillis))
+        assertEquals("3 Nov", WeatherUtils.formatHourlyDateOnly(tomorrowMillis))
+
+        // Day after tomorrow
+        val dayAfterTomorrowMillis = nowMillis + 48 * 3600_000L
+        assertEquals("Wed", WeatherUtils.formatHourlyDay(dayAfterTomorrowMillis, nowMillis))
+
+        // Hourly range formatting
+        assertEquals("Today → Tomorrow", WeatherUtils.formatHourlyRange(nowMillis, tomorrowMillis, nowMillis))
+        assertEquals("Today", WeatherUtils.formatHourlyRange(nowMillis, nowMillis + 2 * 3600_000L, nowMillis))
+    }
 }

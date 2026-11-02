@@ -418,8 +418,14 @@ fun HourlyForecastSection(
                     color = AetherialPalette.DeepSlateNavy
                 )
             }
+            val rangeLabel = if (hourly.isNotEmpty()) {
+                val endItem = hourly.take(24).last()
+                "NEXT 24H · " + WeatherUtils.formatHourlyRange(hourly.first().time, endItem.time).uppercase()
+            } else {
+                "NEXT 24H →"
+            }
             Text(
-                text = "NEXT 24H →",
+                text = rangeLabel,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = AetherialPalette.IndigoAccent,
@@ -449,30 +455,46 @@ fun HourlyForecastSection(
                     shape = RoundedCornerShape(22.dp),
                     colors = CardDefaults.cardColors(containerColor = containerColor),
                     border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
-                    modifier = Modifier.width(82.dp)
+                    modifier = Modifier.width(88.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 14.dp, horizontal = 6.dp),
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Day Label (Today / Tomorrow / Mon)
+                        Text(
+                            text = WeatherUtils.formatHourlyDay(item.time),
+                            fontSize = 10.sp,
+                            fontWeight = if (isFirst) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor.copy(alpha = 0.8f)
+                        )
+                        // Date Label (2 Nov / 3 Nov)
+                        Text(
+                            text = WeatherUtils.formatHourlyDateOnly(item.time),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isFirst) AetherialPalette.IndigoAccent.copy(alpha = 0.85f) else textColor.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        // Hour / "NOW"
                         Text(
                             text = if (isFirst) "NOW" else WeatherUtils.formatTime(item.time),
-                            fontSize = 11.sp,
-                            fontWeight = if (isFirst) FontWeight.ExtraBold else FontWeight.SemiBold,
-                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor.copy(alpha = 0.85f)
+                            fontSize = 12.sp,
+                            fontWeight = if (isFirst) FontWeight.ExtraBold else FontWeight.Bold,
+                            color = if (isFirst) AetherialPalette.IndigoAccent else textColor
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Icon(
                             imageVector = getWeatherIcon(item.weatherCode),
                             contentDescription = item.weatherDescription,
                             tint = iconTint,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = WeatherUtils.formatTemperature(item.temperatureCelsius, isCelsius),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             color = if (isDark) AetherialPalette.DarkText else AetherialPalette.DeepSlateNavy
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -486,7 +508,7 @@ fun HourlyForecastSection(
                             Spacer(modifier = Modifier.width(2.dp))
                             Text(
                                 text = "${item.precipitationProbability}%",
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 color = if (isThunder) AetherialPalette.CoralText else if (isRain) AetherialPalette.SkyBlueText else AetherialPalette.IndigoAccent,
                                 fontWeight = FontWeight.Bold
                             )

@@ -59,19 +59,67 @@ object WeatherUtils {
         }
     }
 
+    private val bangkokTimeZone: TimeZone = TimeZone.getTimeZone("Asia/Bangkok")
+
     fun formatTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault()).apply {
+            timeZone = bangkokTimeZone
+        }
         return sdf.format(Date(timestamp))
     }
 
     fun formatDate(timestamp: Long): String {
-        val sdf = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
+        val sdf = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).apply {
+            timeZone = bangkokTimeZone
+        }
         return sdf.format(Date(timestamp))
     }
 
     fun formatTimestamp(timestamp: Long): String {
-        val sdf = SimpleDateFormat("EEE, d MMM HH:mm", Locale.getDefault())
+        val sdf = SimpleDateFormat("EEE, d MMM HH:mm", Locale.getDefault()).apply {
+            timeZone = bangkokTimeZone
+        }
         return sdf.format(Date(timestamp))
+    }
+
+    /**
+     * Formats day label for hourly forecast cards: "Today", "Tomorrow", or weekday name (e.g. "Wed").
+     */
+    fun formatHourlyDay(timestamp: Long, nowMillis: Long = System.currentTimeMillis()): String {
+        val calItem = Calendar.getInstance(bangkokTimeZone).apply { timeInMillis = timestamp }
+        val calNow = Calendar.getInstance(bangkokTimeZone).apply { timeInMillis = nowMillis }
+
+        val isToday = calItem.get(Calendar.YEAR) == calNow.get(Calendar.YEAR) &&
+                calItem.get(Calendar.DAY_OF_YEAR) == calNow.get(Calendar.DAY_OF_YEAR)
+
+        calNow.add(Calendar.DAY_OF_YEAR, 1)
+        val isTomorrow = calItem.get(Calendar.YEAR) == calNow.get(Calendar.YEAR) &&
+                calItem.get(Calendar.DAY_OF_YEAR) == calNow.get(Calendar.DAY_OF_YEAR)
+
+        return when {
+            isToday -> "Today"
+            isTomorrow -> "Tomorrow"
+            else -> SimpleDateFormat("EEE", Locale.getDefault()).apply { timeZone = bangkokTimeZone }.format(Date(timestamp))
+        }
+    }
+
+    /**
+     * Formats date label for hourly forecast cards: "2 Nov", "3 Nov", etc.
+     */
+    fun formatHourlyDateOnly(timestamp: Long): String {
+        val sdf = SimpleDateFormat("d MMM", Locale.getDefault()).apply {
+            timeZone = bangkokTimeZone
+        }
+        return sdf.format(Date(timestamp))
+    }
+
+    /**
+     * Formats range subtitle for the hourly section header, e.g. "Today → Tomorrow" or "Today".
+     */
+    fun formatHourlyRange(startMillis: Long, endMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+        val startDay = formatHourlyDay(startMillis, nowMillis)
+        val endDay = formatHourlyDay(endMillis, nowMillis)
+        return if (startDay == endDay) startDay else "$startDay → $endDay"
     }
 
     /**

@@ -5,7 +5,7 @@
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose_Material3-4285F4.svg?style=flat&logo=jetpackcompose)](https://developer.android.com/jetpack/compose)
 [![Groq AI](https://img.shields.io/badge/AI_Summarization-Groq_LLaMA_3.3-F55036.svg?style=flat)](https://groq.com/)
 [![Design System](https://img.shields.io/badge/Design_System-NomadKit-D4A373.svg?style=flat)](#nomadkit-design-system)
-[![Release](https://img.shields.io/badge/Latest_Release-v1.0.0-success.svg?style=flat)](release/thailand-weather-v1.0.0.apk)
+[![Release](https://img.shields.io/badge/Latest_Release-v1.0.1-success.svg?style=flat)](https://github.com/1ambharath/Weather/releases/tag/v1.0.1)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC_BY_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
 > **A production-ready, native Android application and traveler intelligence hub designed specifically for Thailand's tropical climate, monsoons, flash flooding, official government advisories, environmental air quality (PM2.5), Doppler radar sweeps, marine conditions, and lightning-fast AI meteorological briefings.**
@@ -16,16 +16,16 @@
 
 Ready to use the app right now? Download the pre-built, installable APK package below:
 
-📦 **[Download Thailand Weather Intelligence v1.0.0 APK](https://github.com/1ambharath/Weather/releases/download/v1.0.0/thailand-weather-v1.0.0.apk)** *(~3.1 MB)*
+📦 **[Download Thailand Weather Intelligence v1.0.1 APK](https://github.com/1ambharath/Weather/releases/download/v1.0.1/thailand-weather-v1.0.1.apk)** *(~3.1 MB)*
 
 ### How to Install on Any Android Device (Android 8.0+)
-1. Download **`thailand-weather-v1.0.0.apk`** to your phone.
+1. Download **`thailand-weather-v1.0.1.apk`** to your phone.
 2. Tap the downloaded file in your browser downloads or file manager.
 3. If prompted with *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source**.
 4. Tap **Install** & open the app!
 5. *(Optional for Developers)* Run via ADB:
    ```bash
-   adb install -r release/thailand-weather-v1.0.0.apk
+   adb install -r release/thailand-weather-v1.0.1.apk
    ```
 
 ---
@@ -278,6 +278,16 @@ To run the automated test suite (including Haversine distance tests, Groq API cl
 ## 📦 Releases & Version History
 
 Detailed release logs, fixes, and upgrade guidelines are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+### [v1.0.1] - Maintenance & Bug Fix Release (2026-11-02)
+> 📦 **Download**: [thailand-weather-v1.0.1.apk](https://github.com/1ambharath/Weather/releases/download/v1.0.1/thailand-weather-v1.0.1.apk) *(~3.1 MB)*  
+> 🛡️ **SHA-256**: `093E58CEF43FD1CF4F517C74CEF5E6174206627EF517CC170225D114E7EA53E0`
+
+#### 🛠️ What Was Fixed
+* **Dynamic 24-Hour Sliding Forecast Window (Fixes #1)**: Hourly outlook now tracks the current ongoing hour in `Asia/Bangkok` local time and dynamically presents the next 24 consecutive hours spanning today into tomorrow (instead of defaulting to 00:00 midnight of the current day).
+* **Day & Date Context on Hourly Cards (Fixes #1)**: Added day indicator (`Today`, `Tomorrow`, or weekday) and calendar date (`d MMM`) to every hourly forecast card.
+* **Dynamic Date Range Header**: Section header reflects active date coverage (e.g. `NEXT 24H · TODAY → TOMORROW`).
+* **Timezone Consistency**: Standardized timestamp parsing and formatting to Thailand's local timezone (`Asia/Bangkok`).
 
 ### [v1.0.0] - Production Release (2026-11-01)
 > 📦 **Download**: [thailand-weather-v1.0.0.apk](https://github.com/1ambharath/Weather/releases/download/v1.0.0/thailand-weather-v1.0.0.apk) *(~3.1 MB)*  
